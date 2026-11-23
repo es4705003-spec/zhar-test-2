@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Жар · тест голоса</title>
+<style>
+:root { color-scheme: dark; --bg:#130808; --card:#261210; --card2:#321816; --line:#43201a; --fg:#fdeee2; --muted:#b98f80; --red:#e5372a; --orange:#ff7a1a; --yellow:#ffc933; --ok:#7fd36b; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding:16px; }
+main { max-width:520px; margin:0 auto; }
+h1 { font-size:24px; margin:8px 0 4px; }
+h2 { font-size:13px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin:22px 0 8px; }
+p { margin:6px 0; color:var(--muted); }
+.card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px 14px; }
+.row { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line); }
+.row:last-child { border-bottom:0; }
+.row span:first-child { color:var(--muted); }
+.row span:last-child { text-align:right; overflow-wrap:anywhere; min-width:0; }
+.ok { color:var(--ok); } .bad { color:#ff8a7d; } .wait { color:var(--yellow); }
+input, select, textarea { width:100%; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:12px; padding:11px 12px; font:inherit; margin-top:6px; }
+label { display:block; margin-top:10px; color:var(--muted); font-size:13px; }
+label.chk { display:flex; gap:10px; align-items:flex-start; color:var(--fg); }
+label.chk input { width:auto; margin:4px 0 0; }
+button { font:inherit; border:0; border-radius:14px; padding:13px 18px; cursor:pointer; font-weight:700; }
+.go { background:linear-gradient(135deg,var(--orange),var(--red)); color:#fff; width:100%; margin-top:14px; }
+.sec { background:var(--card2); color:var(--fg); }
+.btns { display:flex; gap:10px; margin-top:10px; }
+.btns button { flex:1; }
+button:disabled { opacity:.5; cursor:default; }
+.pt { display:flex; align-items:center; gap:10px; padding:7px 0; }
+.av { width:34px; height:34px; border-radius:50%; background:var(--orange); color:#2b0b04; display:grid; place-items:center; font-weight:800; flex:none; box-shadow:0 0 0 0 transparent; transition:box-shadow .15s; }
+.pt.speaking .av { box-shadow:0 0 0 3px var(--bg), 0 0 0 6px var(--yellow); }
+textarea { height:190px; font:12px/1.4 ui-monospace,Menlo,Consolas,monospace; }
+.note { font-size:13px; color:var(--yellow); margin-top:8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Жар · тест голоса</h1>
+  <p>Проверяем, доходит ли голос до людей в разных странах и у разных провайдеров. Это ранний тест: он ничего не сохраняет и не требует регистрации.</p>
+
+  <h2>1. Проверка сети</h2>
+  <div class="card" id="checks"></div>
+
+  <h2>2. Расскажите о себе</h2>
+  <div class="card">
+    <label>Страна <input id="country" placeholder="Например, Беларусь" autocomplete="off"></label>
+    <label>Провайдер или мобильный оператор <input id="provider" placeholder="Например, A1, МТС, Билайн, Ростелеком" autocomplete="off"></label>
+    <label>Используете VPN?
+      <select id="vpn"><option value="не указано">Выберите</option><option value="нет">Нет</option><option value="да">Да</option></select>
+    </label>
+  </div>
+
+  <h2>3. Вход в комнату</h2>
+  <div class="card">
+    <label>Ваше имя в комнате <input id="name" maxlength="20" autocomplete="off"></label>
+    <label class="chk"><input type="checkbox" id="relay"><span>Через ретранслятор. Включайте, только если обычный вход не сработал.</span></label>
+    <button class="go" id="join" disabled>Загрузка…</button>
+    <div class="btns" id="liveBtns" hidden>
+      <button class="sec" id="mic">Выключить микрофон</button>
+      <button class="sec" id="leave">Выйти</button>
+    </div>
+    <button class="go" id="audioBtn" hidden>Включить звук собеседников</button>
+    <div class="note" id="status"></div>
+  </div>
+
+  <h2>Кто в комнате</h2>
+  <div class="card" id="people"><p>Пока вы не вошли.</p></div>
+
+  <h2>Состояние связи</h2>
+  <div class="card" id="live"></div>
+
+  <h2>4. Отчёт</h2>
+  <div class="card">
+    <p>Нажмите «Скопировать» и отправьте текст тому, кто просил вас о тесте. В нём нет вашего IP-адреса.</p>
+    <textarea id="report" readonly></textarea>
+    <div class="btns"><button class="go" id="copy" style="margin-top:0">Скопировать отчёт</button></div>
+  </div>
+</main>
+
+<script>
+/* Перехватываем создание WebRTC-соединений, чтобы потом читать статистику. Должно стоять до загрузки библиотеки. */
+window.__PCS = [];
+(function () {
+  var Orig = window.RTCPeerConnection;
+  if (!Orig) return;
+  window.RTCPeerConnection = class extends Orig { constructor() { super(...arguments); window.__PCS.push(this); } };
+})();
+</script>
+
+<script>
+(function () {
+  var CFG = { url: 'wss://zar-xz0v8cyu.livekit.cloud', host: 'https://zar-xz0v8cyu.livekit.cloud', tokenServerId: 'zhar-1vz7r1', roomName: 'zhar-test', sdk: ['https://cdn.jsdelivr.net/npm/livekit-client@2.15.13/dist/livekit-client.umd.min.js', 'https://unpkg.com/livekit-client@2.15.13/dist/livekit-client.umd.min.js'] };
+  var $ = function (id) { return document.getElementById(id); };
+  var t0 = Date.now(), logLines = [];
+  var room = null, statsTimer = null, relayOn = false;
+  var R = { sdk: ['Библиотека LiveKit', 'wait', 'загружается'], reach: ['Сервер LiveKit доступен', 'wait', 'проверяется'], token: ['Пропуск в комнату', 'wait', 'ещё не запрошен'], connect: ['Подключение', 'wait', 'ещё нет'], mic: ['Микрофон', 'wait', 'ещё нет'], sent: ['Ваш звук уходит', 'wait', 'ещё нет'], audio: ['Чужой звук приходит', 'wait', 'ещё нет'] };
+  var S = { pair: '—', rtt: '—', loss: '—', jitter: '—', quality: '—', state: '—' };
+
+  function L(msg) { logLines.push(((Date.now() - t0) / 1000).toFixed(1) + 'с ' + msg); if (logLines.length > 200) logLines.shift(); report(); }
+  function set(key, state, text) { R[key][1] = state; R[key][2] = text; L(R[key][0] + ': ' + text); drawChecks(); }
+  function drawChecks() {
+    $('checks').innerHTML = Object.keys(R).map(function (k) { var r = R[k]; return '<div class="row"><span>' + r[0] + '</span><span class="' + r[1] + '">' + r[2] + '</span></div>'; }).join('');
+    $('live').innerHTML = [['Состояние', S.state], ['Тип соединения', S.pair], ['Задержка', S.rtt], ['Потери пакетов', S.loss], ['Дрожание', S.jitter], ['Оценка качества', S.quality]].map(function (x) { return '<div class="row"><span>' + x[0] + '</span><span>' + x[1] + '</span></div>'; }).join('');
+    report();
+  }
+  function status(t) { $('status').textContent = t || ''; }
+  function conn() { try { var c = navigator.connection; return c ? (c.effectiveType || '?') + (c.downlink ? ', ~' + c.downlink + ' Мбит/с' : '') : 'нет данных'; } catch (e) { return 'нет данных'; } }
+  function report() {
+    var lines = ['ЖАР · отчёт теста голоса', 'Время (UTC): ' + new Date().toISOString(), 'Часовой пояс: ' + (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return '?'; } })(),
+      'Страна: ' + ($('country').value || 'не указана'), 'Провайдер/оператор: ' + ($('provider').value || 'не указан'), 'VPN: ' + $('vpn').value,
+      'Режим ретранслятора: ' + (relayOn ? 'да' : 'нет'), 'Браузер: ' + navigator.userAgent, 'Сеть по данным браузера: ' + conn(), ''];
+    Object.keys(R).forEach(function (k) { lines.push(R[k][0] + ': ' + R[k][2]); });
+    lines.push('Тип соединения: ' + S.pair, 'Задержка: ' + S.rtt, 'Потери пакетов: ' + S.loss, 'Дрожание: ' + S.jitter, 'Оценка качества: ' + S.quality, '', 'Журнал:');
+    $('report').value = lines.concat(logLines.slice(-40)).join('\n');
+  }
+
+  /* ---------- библиотека ---------- */
+  function loadScript(src) { return new Promise(function (ok, fail) { var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = function () { fail(new Error('не загрузился ' + src)); }; document.head.appendChild(s); }); }
+  async function loadSdk() {
+    for (var i = 0; i < CFG.sdk.length; i++) {
+      var t = Date.now();
+      try { await loadScript(CFG.sdk[i]); if (window.LivekitClient) { set('sdk', 'ok', 'загружена с ' + new URL(CFG.sdk[i]).host + ' за ' + (Date.now() - t) + ' мс'); return true; } }
+      catch (e) { L('Библиотека: ' + e.message); }
+    }
+    set('sdk', 'bad', 'не загрузилась ни с одного адреса');
+    return false;
+  }
+  async function checkReach() {
+    var t = Date.now();
+    try { await fetch(CFG.host, { mode: 'no-cors', cache: 'no-store' }); set('reach', 'ok', 'отвечает за ' + (Date.now() - t) + ' мс'); }
+    catch (e) { set('reach', 'bad', 'не отвечает (' + (e.message || 'ошибка сети') + ')'); }
+  }
+
+  /* ---------- пропуск ---------- */
+  async function getToken(name, identity) {
+    var errs = [], LK = window.LivekitClient, opts = { roomName: CFG.roomName, participantName: name, participantIdentity: identity };
+    try {
+      var src = null;
+      if (LK.TokenSource && LK.TokenSource.developmentTokenServer) src = LK.TokenSource.developmentTokenServer(CFG.tokenServerId);
+      else if (LK.TokenSource && LK.TokenSource.sandboxTokenServer) src = LK.TokenSource.sandboxTokenServer(CFG.tokenServerId);
+      else if (LK.TokenSourceSandboxTokenServer) src = new LK.TokenSourceSandboxTokenServer(CFG.tokenServerId, {});
+      if (!src) throw new Error('в этой версии библиотеки нет нужного метода');
+      var r = await src.fetch(opts);
+      if (r && r.participantToken) return { url: r.serverUrl, token: r.participantToken, via: 'библиотека' };
+      throw new Error('в ответе нет пропуска');
+    } catch (e) { errs.push('библиотека: ' + (e.message || e)); L('Пропуск через библиотеку не вышел: ' + (e.message || e)); }
+    try {
+      var res = await fetch('https://cloud-api.livekit.io/api/sandbox/connection-details', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Sandbox-ID': CFG.tokenServerId }, body: JSON.stringify({ roomName: CFG.roomName, participantName: name, participantIdentity: identity, room_name: CFG.roomName, participant_name: name }) });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var j = await res.json();
+      var tk = j.participantToken || j.token;
+      if (!tk) throw new Error('в ответе нет пропуска');
+      return { url: j.serverUrl || j.server_url, token: tk, via: 'прямой запрос' };
+    } catch (e2) { errs.push('прямой запрос: ' + (e2.message || e2)); }
+    throw new Error(errs.join('; '));
+  }
+
+  /* ---------- участники ---------- */
+  function drawPeople() {
+    if (!room) { $('people').innerHTML = '<p>Пока вы не вошли.</p>'; return; }
+    var list = [room.localParticipant].concat(Array.from(room.remoteParticipants.values()));
+    $('people').innerHTML = list.map(function (p) {
+      var nm = p.name || p.identity || '?', me = p === room.localParticipant;
+      return '<div class="pt' + (p.isSpeaking ? ' speaking' : '') + '"><span class="av">' + nm.charAt(0).toUpperCase().replace(/[<>&"]/g, '?') + '</span><span>' + nm.replace(/[<>&"]/g, '?') + (me ? ' (вы)' : '') + '</span></div>';
+    }).join('');
+  }
+
+  /* ---------- статистика соединения ---------- */
+  async function readStats() {
+    var pair = null, lost = 0, recv = 0, jit = 0, sent = 0;
+    for (var i = 0; i < window.__PCS.length; i++) {
+      var pc = window.__PCS[i]; if (pc.connectionState === 'closed') continue;
+      var rep; try { rep = await pc.getStats(); } catch (e) { continue; }
+      var cands = {}, pairs = [];
+      rep.forEach(function (s) {
+        if (s.type === 'local-candidate' || s.type === 'remote-candidate') cands[s.id] = s;
+        if (s.type === 'candidate-pair' && s.state === 'succeeded' && (s.nominated || s.selected)) pairs.push(s);
+        if (s.type === 'inbound-rtp' && s.kind === 'audio') { lost += s.packetsLost || 0; recv += s.packetsReceived || 0; jit = Math.max(jit, s.jitter || 0); }
+        if (s.type === 'outbound-rtp' && s.kind === 'audio') sent += s.bytesSent || 0;
+      });
+      if (pairs.length && !pair) pair = { p: pairs[0], l: cands[pairs[0].localCandidateId], r: cands[pairs[0].remoteCandidateId] };
+    }
+    if (pair) {
+      var l = pair.l || {}, r = pair.r || {};
+      var way = l.candidateType === 'relay' ? 'через ретранслятор (' + (l.relayProtocol || l.protocol || '?') + ')' : (l.candidateType === 'host' || l.candidateType === 'srflx' || l.candidateType === 'prflx') ? 'напрямую (' + (l.protocol || '?') + ')' : (l.candidateType || '?');
+      S.pair = way + (r.candidateType ? ', сервер: ' + r.candidateType : '');
+      if (pair.p.currentRoundTripTime != null) S.rtt = Math.round(pair.p.currentRoundTripTime * 1000) + ' мс';
+    }
+    if (recv + lost > 0) S.loss = (lost / (lost + recv) * 100).toFixed(1) + '% (' + lost + ' из ' + (lost + recv) + ')';
+    if (recv > 0 || jit > 0) S.jitter = Math.round(jit * 1000) + ' мс';
+    if (sent > 0 && R.sent[1] !== 'ok') set('sent', 'ok', 'да, микрофон передаёт звук');
+    if (recv > 0 && R.audio[1] !== 'ok') set('audio', 'ok', 'да, звук собеседников доходит');
+    drawChecks();
+  }
+
+  /* ---------- вход ---------- */
+  function on(ev, fn) { var k = window.LivekitClient.RoomEvent[ev]; if (k) room.on(k, fn); else L('Нет события ' + ev); }
+  async function join() {
+    var name = ($('name').value || '').trim() || 'Гость';
+    var identity = name + '-' + Math.random().toString(36).slice(2, 6);
+    relayOn = $('relay').checked; $('join').disabled = true; status('Получаем пропуск…');
+    var tok;
+    try { set('token', 'wait', 'запрашивается'); tok = await getToken(name, identity); set('token', 'ok', 'получен (' + tok.via + ')'); }
+    catch (e) { set('token', 'bad', 'не получен: ' + e.message); status('Не удалось получить пропуск. Отправьте отчёт ниже.'); $('join').disabled = false; return; }
+    var LK = window.LivekitClient;
+    room = new LK.Room({ adaptiveStream: false, dynacast: false });
+    window.__PCS.length = 0;
+    on('ConnectionStateChanged', function (st) { S.state = String(st); L('Состояние: ' + st); drawChecks(); });
+    on('Reconnecting', function () { S.state = 'переподключение…'; L('Переподключение'); drawChecks(); });
+    on('Reconnected', function () { S.state = 'connected'; L('Переподключились'); drawChecks(); });
+    on('Disconnected', function () { S.state = 'отключено'; L('Отключено'); drawChecks(); });
+    on('ConnectionQualityChanged', function (q, p) { if (p === room.localParticipant) { S.quality = String(q); drawChecks(); } });
+    on('ParticipantConnected', function (p) { L('Вошёл: ' + (p.name || p.identity)); drawPeople(); });
+    on('ParticipantDisconnected', function (p) { L('Вышел: ' + (p.name || p.identity)); drawPeople(); });
+    on('ActiveSpeakersChanged', function () { drawPeople(); });
+    on('MediaDevicesError', function (e) { L('Ошибка устройства: ' + (e && e.message)); });
+    on('AudioPlaybackStatusChanged', function () { $('audioBtn').hidden = room.canPlaybackAudio; });
+    on('TrackSubscribed', function (track) { if (track.kind === 'audio') { var el = track.attach(); el.style.display = 'none'; document.body.appendChild(el); L('Принят аудиопоток'); } });
+    status('Подключаемся…'); set('connect', 'wait', 'идёт подключение');
+    var t = Date.now();
+    try {
+      await room.connect(tok.url || CFG.url, tok.token, relayOn ? { rtcConfig: { iceTransportPolicy: 'relay' } } : undefined);
+      set('connect', 'ok', 'установлено за ' + (Date.now() - t) + ' мс');
+    } catch (e) {
+      set('connect', 'bad', 'не вышло: ' + (e.message || e)); status('Не удалось подключиться. Попробуйте режим ретранслятора или отправьте отчёт.');
+      try { room.disconnect(); } catch (x) {} room = null; $('join').disabled = false; drawPeople(); return;
+    }
+    try { await room.localParticipant.setMicrophoneEnabled(true); set('mic', 'ok', 'включён'); }
+    catch (e) { var n = e && e.name; set('mic', 'bad', n === 'NotAllowedError' ? 'доступ запрещён в браузере' : n === 'NotFoundError' ? 'микрофон не найден' : (e.message || 'ошибка')); }
+    $('join').hidden = true; $('liveBtns').hidden = false; $('audioBtn').hidden = room.canPlaybackAudio;
+    status('Вы в комнате. Скажите что-нибудь и попросите остальных ответить.');
+    drawPeople(); clearInterval(statsTimer); statsTimer = setInterval(readStats, 2000); readStats();
+  }
+  function leave() {
+    clearInterval(statsTimer);
+    try { room.disconnect(); } catch (e) {}
+    room = null; $('join').hidden = false; $('join').disabled = false; $('liveBtns').hidden = true; $('audioBtn').hidden = true;
+    status('Вы вышли. Отчёт ниже можно скопировать.'); drawPeople();
+  }
+  async function toggleMic() {
+    if (!room) return;
+    var enabled = room.localParticipant.isMicrophoneEnabled;
+    try { await room.localParticipant.setMicrophoneEnabled(!enabled); $('mic').textContent = enabled ? 'Включить микрофон' : 'Выключить микрофон'; } catch (e) { L('Микрофон: ' + (e.message || e)); }
+  }
+  async function copy() {
+    var ta = $('report'); ta.select(); ta.setSelectionRange(0, 99999);
+    try { await navigator.clipboard.writeText(ta.value); $('copy').textContent = 'Скопировано'; }
+    catch (e) { try { document.execCommand('copy'); $('copy').textContent = 'Скопировано'; } catch (x) { $('copy').textContent = 'Выделите текст и скопируйте вручную'; } }
+    setTimeout(function () { $('copy').textContent = 'Скопировать отчёт'; }, 2500);
+  }
+
+  $('name').value = 'Гость-' + Math.floor(100 + Math.random() * 900);
+  ['country', 'provider', 'vpn', 'relay'].forEach(function (id) { $(id).addEventListener('input', report); $(id).addEventListener('change', report); });
+  $('join').addEventListener('click', join); $('leave').addEventListener('click', leave); $('mic').addEventListener('click', toggleMic); $('copy').addEventListener('click', copy);
+  $('audioBtn').addEventListener('click', function () { room && room.startAudio().then(function () { $('audioBtn').hidden = true; }); });
+  drawChecks();
+  if (!window.isSecureContext) { status('Страница открыта не по https, микрофон работать не будет.'); }
+  loadSdk().then(function (ok) { $('join').disabled = !ok; $('join').textContent = ok ? 'Войти в комнату' : 'Библиотека не загрузилась'; });
+  checkReach();
+})();
+</script>
+</body>
+</html>
