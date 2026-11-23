@@ -209,12 +209,19 @@ window.__PCS = [];
     catch (e) { set('token', 'bad', 'не получен: ' + e.message); status('Не удалось получить пропуск. Отправьте отчёт ниже.'); $('join').disabled = false; return; }
     var LK = window.LivekitClient;
     room = new LK.Room({ adaptiveStream: false, dynacast: false });
-    window.__PCS.length = 0;
+    window.__PCS.length = 0; var mine = room;
     on('ConnectionStateChanged', function (st) { S.state = String(st); L('Состояние: ' + st); drawChecks(); });
     on('SignalReconnecting', function () { L('Обрыв сигнального канала'); });
     on('Reconnecting', function () { S.state = 'переподключение…'; L('Переподключение'); drawChecks(); });
     on('Reconnected', function () { S.state = 'connected'; L('Переподключились'); drawChecks(); });
-    on('Disconnected', function () { S.state = 'отключено'; L('Отключено'); drawChecks(); });
+    on('Disconnected', function (reason) {
+      S.state = 'отключено'; L('Отключено, причина: ' + (reason === undefined ? 'не указана' : reason) + ', в комнате ' + Math.round((Date.now() - t0) / 1000) + ' с от открытия страницы'); drawChecks();
+      if (room === mine) {
+        clearInterval(statsTimer); room = null; $('join').hidden = false; $('join').disabled = false; $('liveBtns').hidden = true; $('audioBtn').hidden = true;
+        set('connect', 'bad', 'связь потеряна после входа (причина: ' + (reason === undefined ? '?' : reason) + ')');
+        status('Связь с комнатой потеряна. Нажмите «Войти в комнату», чтобы зайти снова. Отчёт ниже сохранил причину.'); drawPeople();
+      }
+    });
     on('ConnectionQualityChanged', function (q, p) { if (p === room.localParticipant) { S.quality = String(q); drawChecks(); } });
     on('ParticipantConnected', function (p) { L('Вошёл: ' + (p.name || p.identity)); drawPeople(); });
     on('ParticipantDisconnected', function (p) { L('Вышел: ' + (p.name || p.identity)); drawPeople(); });
@@ -246,6 +253,7 @@ window.__PCS = [];
   }
   async function toggleMic() {
     if (!room) return;
+    if (String(room.state) !== 'connected') { L('Микрофон: нет связи с комнатой (' + room.state + ')'); status('Нет связи с комнатой, подождите переподключения или выйдите и зайдите снова.'); return; }
     var enabled = room.localParticipant.isMicrophoneEnabled, b = $('mic'), t = Date.now();
     b.disabled = true; b.textContent = enabled ? 'Выключаем…' : 'Включаем…';
     try { await room.localParticipant.setMicrophoneEnabled(!enabled); L('Микрофон ' + (enabled ? 'выключен' : 'включён') + ' за ' + (Date.now() - t) + ' мс'); }
