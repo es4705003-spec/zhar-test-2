@@ -85,7 +85,9 @@ window.__PCS = [];
 (function () {
   var Orig = window.RTCPeerConnection;
   if (!Orig) return;
-  window.RTCPeerConnection = class extends Orig { constructor() { super(...arguments); window.__PCS.push(this); } };
+  window.RTCPeerConnection = class extends Orig { constructor() { super(...arguments); window.__PCS.push(this); var pc = this, n = window.__PCS.length;
+    pc.addEventListener('iceconnectionstatechange', function () { window.__onIce && window.__onIce('ICE#' + n + ': ' + pc.iceConnectionState); });
+    pc.addEventListener('connectionstatechange', function () { window.__onIce && window.__onIce('PC#' + n + ': ' + pc.connectionState); }); } };
 })();
 </script>
 
@@ -98,6 +100,7 @@ window.__PCS = [];
   var R = { sdk: ['Библиотека LiveKit', 'wait', 'загружается'], reach: ['Сервер LiveKit доступен', 'wait', 'проверяется'], token: ['Пропуск в комнату', 'wait', 'ещё не запрошен'], connect: ['Подключение', 'wait', 'ещё нет'], mic: ['Микрофон', 'wait', 'ещё нет'], sent: ['Ваш звук уходит', 'wait', 'ещё нет'], audio: ['Чужой звук приходит', 'wait', 'ещё нет'] };
   var S = { pair: '—', rtt: '—', loss: '—', jitter: '—', quality: '—', state: '—' };
 
+  window.__onIce = function (m) { L(m); };
   function L(msg) { logLines.push(((Date.now() - t0) / 1000).toFixed(1) + 'с ' + msg); if (logLines.length > 200) logLines.shift(); report(); }
   function set(key, state, text) { R[key][1] = state; R[key][2] = text; L(R[key][0] + ': ' + text); drawChecks(); }
   function drawChecks() {
@@ -208,6 +211,7 @@ window.__PCS = [];
     room = new LK.Room({ adaptiveStream: false, dynacast: false });
     window.__PCS.length = 0;
     on('ConnectionStateChanged', function (st) { S.state = String(st); L('Состояние: ' + st); drawChecks(); });
+    on('SignalReconnecting', function () { L('Обрыв сигнального канала'); });
     on('Reconnecting', function () { S.state = 'переподключение…'; L('Переподключение'); drawChecks(); });
     on('Reconnected', function () { S.state = 'connected'; L('Переподключились'); drawChecks(); });
     on('Disconnected', function () { S.state = 'отключено'; L('Отключено'); drawChecks(); });
@@ -227,8 +231,9 @@ window.__PCS = [];
       set('connect', 'bad', 'не вышло: ' + (e.message || e)); status('Не удалось подключиться. Попробуйте режим ретранслятора или отправьте отчёт.');
       try { room.disconnect(); } catch (x) {} room = null; $('join').disabled = false; drawPeople(); return;
     }
-    try { await room.localParticipant.setMicrophoneEnabled(true); set('mic', 'ok', 'включён'); }
-    catch (e) { var n = e && e.name; set('mic', 'bad', n === 'NotAllowedError' ? 'доступ запрещён в браузере' : n === 'NotFoundError' ? 'микрофон не найден' : (e.message || 'ошибка')); }
+    var tm = Date.now();
+    try { await room.localParticipant.setMicrophoneEnabled(true); set('mic', 'ok', 'включён за ' + (Date.now() - tm) + ' мс'); }
+    catch (e) { var n = e && e.name, d = ' [' + (n || '?') + ': ' + ((e && e.message) || '') + ', ' + (Date.now() - tm) + ' мс]'; set('mic', 'bad', (n === 'NotAllowedError' ? 'доступ запрещён в браузере' : n === 'NotFoundError' ? 'микрофон не найден' : 'ошибка') + d); }
     $('join').hidden = true; $('liveBtns').hidden = false; $('audioBtn').hidden = room.canPlaybackAudio;
     status('Вы в комнате. Скажите что-нибудь и попросите остальных ответить.');
     drawPeople(); clearInterval(statsTimer); statsTimer = setInterval(readStats, 2000); readStats();
@@ -241,8 +246,11 @@ window.__PCS = [];
   }
   async function toggleMic() {
     if (!room) return;
-    var enabled = room.localParticipant.isMicrophoneEnabled;
-    try { await room.localParticipant.setMicrophoneEnabled(!enabled); $('mic').textContent = enabled ? 'Включить микрофон' : 'Выключить микрофон'; } catch (e) { L('Микрофон: ' + (e.message || e)); }
+    var enabled = room.localParticipant.isMicrophoneEnabled, b = $('mic'), t = Date.now();
+    b.disabled = true; b.textContent = enabled ? 'Выключаем…' : 'Включаем…';
+    try { await room.localParticipant.setMicrophoneEnabled(!enabled); L('Микрофон ' + (enabled ? 'выключен' : 'включён') + ' за ' + (Date.now() - t) + ' мс'); }
+    catch (e) { L('Микрофон: ' + (e && e.name) + ' ' + ((e && e.message) || e) + ' (' + (Date.now() - t) + ' мс)'); }
+    b.disabled = false; b.textContent = room.localParticipant.isMicrophoneEnabled ? 'Выключить микрофон' : 'Включить микрофон';
   }
   async function copy() {
     var ta = $('report'); ta.select(); ta.setSelectionRange(0, 99999);
