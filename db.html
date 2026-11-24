@@ -47,7 +47,45 @@
 </div>
 
 <div class="card">
-  <h2>3. Отчёт</h2>
+  <h2>3. Друзья и личный чат</h2>
+  <p class="dim" style="margin:0 0 6px">Нужны два обычных аккаунта (по почте) на двух устройствах или в двух браузерах. Гости друзей добавлять не могут, это правило.</p>
+  <div class="dim">Мой id (скопируйте и отправьте второму человеку):</div>
+  <input id="myId" readonly placeholder="Сначала войдите">
+  <button id="btnCopyId" class="sec">Скопировать мой id</button>
+  <input id="otherId" placeholder="id второго человека">
+  <button id="btnFriendReq">Отправить заявку в друзья</button>
+  <button id="btnAccept" class="sec">Принять заявку от этого id</button>
+  <button id="btnFriends" class="sec">Показать друзей и заявки</button>
+  <button id="btnDm">Открыть личный чат с этим id</button>
+  <input id="chatId" placeholder="id чата (появится после открытия чата)">
+  <input id="msgBody" placeholder="Текст сообщения" maxlength="200">
+  <button id="btnSend">Отправить сообщение</button>
+  <button id="btnRead" class="sec">Прочитать сообщения чата</button>
+  <button id="btnLive" class="sec">Включить живое получение</button>
+  <div id="soc" style="margin-top:8px"></div>
+</div>
+
+<div class="card">
+  <h2>4. Жалоба и удаление аккаунта</h2>
+  <p class="dim" style="margin:0 0 6px">Жалоба уходит владельцу проекта. Использует поле «id второго человека» выше. Удаление необратимо: проверяйте его на гостевом аккаунте.</p>
+  <button id="btnReportUser" class="sec">Пожаловаться на этот id (тест)</button>
+  <input id="delConfirm" placeholder="Для удаления впишите слово УДАЛИТЬ">
+  <button id="btnDelete" class="sec">Удалить мой аккаунт навсегда</button>
+</div>
+
+<div class="card">
+  <h2>5. Канал WebSocket (30 секунд)</h2>
+  <p class="dim" style="margin:0 0 6px">Долгое соединение, такое же, как у голосовой связи. Нужно для сравнения с тестом голоса.</p>
+  <button id="btnWs">Проверить WebSocket</button>
+  <div id="wsres" class="dim" style="margin-top:8px"></div>
+</div>
+
+<div class="card">
+  <h2>6. Отчёт</h2>
+  <p class="dim" style="margin:0">Заполните, чтобы отчёт был понятен:</p>
+  <input id="fCountry" placeholder="Страна (например, Россия)">
+  <input id="fIsp" placeholder="Оператор или провайдер (МТС, Дом.ру…)">
+  <input id="fVpn" placeholder="VPN: да или нет">
   <button id="btnReport" class="sec">Собрать отчёт для копирования</button>
   <textarea id="rep" readonly placeholder="Здесь появится отчёт"></textarea>
   <button id="btnCopy" class="sec">Скопировать отчёт</button>
@@ -148,12 +186,149 @@
     if (pv.error) add('PASS', 'Схема private закрыта', 'отказано: ' + msg(pv.error));
     else add('FAIL', 'Схема private закрыта', 'ВЫЗОВ ПРОШЁЛ. Это дыра, пришлите отчёт.');
 
+    // 9. Заявку в друзья может отправить только обычный пользователь.
+    var fr = await db.rpc('send_friend_request', { p_target: uuid() });
+    if (u.is_anonymous) add(fr.error ? 'PASS' : 'FAIL', 'Гость не может слать заявки в друзья', fr.error ? 'отказано: ' + msg(fr.error) : 'ЗАЯВКА ПРОШЛА. Это дыра.');
+    else add(fr.error && /not found/i.test(msg(fr.error)) ? 'PASS' : 'INFO', 'Заявка несуществующему человеку', fr.error ? msg(fr.error) : 'ответ: ' + fr.data);
+
     var fails = results.filter(function (r) { return r.status === 'FAIL'; }).length;
     add('INFO', 'Итог', fails === 0 ? 'Все проверки пройдены.' : 'Не пройдено: ' + fails + '. Нажмите «Собрать отчёт» и пришлите мне.');
   }
 
+
+
+  // ===== Друзья и личный чат =====
+  function soc(text, cls) {
+    var row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = '<span class="tag ' + (cls || 'INFO') + '"></span><span class="det" style="display:inline"></span>';
+    row.querySelector('.tag').textContent = cls || 'INFO';
+    row.querySelector('.det').textContent = new Date().toLocaleTimeString() + ' ' + text;
+    $('soc').insertBefore(row, $('soc').firstChild);
+    results.push({ status: cls || 'INFO', title: 'Чат', detail: text });
+  }
+  async function me() {
+    var r = await db.auth.getSession();
+    return r.data && r.data.session ? r.data.session.user : null;
+  }
+  async function showMyId() { var u = await me(); $('myId').value = u ? u.id : ''; }
+  function needOther() { var v = $('otherId').value.trim(); if (!v) { soc('Вставьте id второго человека.', 'FAIL'); return null; } return v; }
+
+  async function names(ids) {
+    var r = await db.from('profiles').select('id,name').in('id', ids);
+    var m = {}; (r.data || []).forEach(function (x) { m[x.id] = x.name; }); return m;
+  }
+
+  var liveCh = null, seen = {};
+  function showMsg(m, who) {
+    if (seen[m.id]) return; seen[m.id] = 1;
+    soc((who || m.author_id.slice(0, 8)) + ': ' + m.body, 'PASS');
+  }
+
+  function wireChat() {
+    $('btnCopyId').onclick = function () { var t = $('myId'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand('copy'); } };
+    $('btnFriendReq').onclick = function () { guard(async function () {
+      var o = needOther(); if (!o) return;
+      var r = await db.rpc('send_friend_request', { p_target: o });
+      if (r.error) soc('Заявка: ошибка — ' + msg(r.error), 'FAIL'); else soc('Заявка: ' + r.data + ' (sent = отправлена, accepted = вы стали друзьями, pending = уже ждёт, already = уже друзья)', 'PASS');
+    }); };
+    $('btnAccept').onclick = function () { guard(async function () {
+      var o = needOther(); if (!o) return;
+      var r = await db.rpc('respond_friend_request', { p_from: o, p_accept: true });
+      if (r.error) soc('Принять: ошибка — ' + msg(r.error), 'FAIL'); else soc('Заявка принята.', 'PASS');
+    }); };
+    $('btnFriends').onclick = function () { guard(async function () {
+      var u = await me(); if (!u) { soc('Нет входа.', 'FAIL'); return; }
+      var r = await db.from('friendships').select('*');
+      if (r.error) { soc('Друзья: ошибка — ' + msg(r.error), 'FAIL'); return; }
+      if (!r.data.length) { soc('Друзей и заявок нет.', 'INFO'); return; }
+      var ids = []; r.data.forEach(function (f) { ids.push(f.user_low, f.user_high); });
+      var nm = await names(ids);
+      r.data.forEach(function (f) {
+        var other = f.user_low === u.id ? f.user_high : f.user_low;
+        soc((nm[other] || other.slice(0, 8)) + ' · ' + (f.status === 'accepted' ? 'друзья' : (f.requested_by === u.id ? 'вы отправили заявку' : 'заявка вам')) + ' · id ' + other, 'INFO');
+      });
+    }); };
+    $('btnDm').onclick = function () { guard(async function () {
+      var o = needOther(); if (!o) return;
+      var r = await db.rpc('start_dm', { p_target: o });
+      if (r.error) soc('Личный чат: ошибка — ' + msg(r.error), 'FAIL');
+      else { $('chatId').value = r.data; soc('Личный чат открыт, id ' + r.data, 'PASS'); }
+    }); };
+    $('btnSend').onclick = function () { guard(async function () {
+      var u = await me(); var c = $('chatId').value.trim(); var b = $('msgBody').value.trim();
+      if (!u || !c || !b) { soc('Нужны вход, id чата и текст.', 'FAIL'); return; }
+      var r = await db.from('messages').insert({ chat_id: c, author_id: u.id, body: b }).select();
+      if (r.error) soc('Отправка: ошибка — ' + msg(r.error), 'FAIL');
+      else { soc('Отправлено: ' + b, 'PASS'); $('msgBody').value = ''; if (r.data && r.data[0]) seen[r.data[0].id] = 1; }
+    }); };
+    $('btnRead').onclick = function () { guard(async function () {
+      var c = $('chatId').value.trim(); if (!c) { soc('Вставьте id чата.', 'FAIL'); return; }
+      var r = await db.from('messages').select('*').eq('chat_id', c).order('id', { ascending: false }).limit(10);
+      if (r.error) { soc('Чтение: ошибка — ' + msg(r.error), 'FAIL'); return; }
+      soc('Прочитано сообщений: ' + r.data.length + (r.data.length === 0 ? ' (у чужого чата так и должно быть)' : ''), 'INFO');
+      var nm = r.data.length ? await names(r.data.map(function (m) { return m.author_id; })) : {};
+      r.data.slice().reverse().forEach(function (m) { seen[m.id] = 0; showMsg(m, nm[m.author_id]); });
+    }); };
+
+    $('btnReportUser').onclick = function () { guard(async function () {
+      var o = needOther(); if (!o) return;
+      var r = await db.rpc('report_user', { p_target: o, p_reason: 'other', p_details: 'тест из db.html' });
+      if (r.error) soc('Жалоба: ошибка — ' + msg(r.error), 'FAIL'); else soc('Жалоба принята.', 'PASS');
+    }); };
+    $('btnDelete').onclick = function () { guard(async function () {
+      if ($('delConfirm').value.trim().toUpperCase() !== 'УДАЛИТЬ') { soc('Впишите слово УДАЛИТЬ, чтобы подтвердить.', 'FAIL'); return; }
+      var r = await db.rpc('delete_my_account');
+      if (r.error) { soc('Удаление: ошибка — ' + msg(r.error), 'FAIL'); return; }
+      await db.auth.signOut();
+      $('delConfirm').value = '';
+      soc('Аккаунт удалён, вы вышли.', 'PASS');
+      await refreshWho();
+    }); };
+    $('btnLive').onclick = function () { guard(async function () {
+      var c = $('chatId').value.trim(); if (!c) { soc('Вставьте id чата.', 'FAIL'); return; }
+      if (liveCh) { await db.removeChannel(liveCh); liveCh = null; }
+      liveCh = db.channel('chat-' + c)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'chat_id=eq.' + c }, async function (p) {
+          var nm = await names([p.new.author_id]); showMsg(p.new, nm[p.new.author_id]);
+        })
+        .subscribe(function (st) { soc('Живое получение: ' + st, st === 'SUBSCRIBED' ? 'PASS' : (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' ? 'FAIL' : 'INFO')); });
+    }); };
+  }
+
+  var wsRun = false;
+  function runWs() {
+    if (wsRun) return; wsRun = true;
+    var out = $('wsres'); out.textContent = 'Подключаемся…';
+    var t0 = Date.now(), opened = null, replies = 0, closed = null, err = null, ws, hb;
+    function sec() { return ((Date.now() - t0) / 1000).toFixed(1) + ' с'; }
+    try {
+      ws = new WebSocket(SUPABASE_URL.replace('https', 'wss') + '/realtime/v1/websocket?apikey=' + encodeURIComponent(SUPABASE_KEY) + '&vsn=1.0.0');
+    } catch (e) { out.textContent = 'Не удалось открыть: ' + msg(e); wsRun = false; return; }
+    function beat(n) { try { ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(n) })); } catch (e) {} }
+    var n = 0;
+    ws.onopen = function () { opened = sec(); out.textContent = 'Открыт за ' + opened + '. Держим 30 с…'; beat(++n); hb = setInterval(function () { beat(++n); }, 5000); };
+    ws.onmessage = function () { replies++; };
+    ws.onerror = function () { err = 'ошибка на ' + sec(); };
+    ws.onclose = function (e) { closed = 'закрыт на ' + sec() + ', код ' + e.code; };
+    setTimeout(function () {
+      clearInterval(hb);
+      var alive = ws.readyState === 1;
+      try { ws.close(); } catch (e) {}
+      var ok = !!opened && alive && replies >= 3;
+      var text = (opened ? 'открыт за ' + opened : 'не открылся') + '; ответов сервера: ' + replies + '; ' + (alive ? 'жив через 30 с' : (closed || 'оборван')) + (err ? '; ' + err : '');
+      out.textContent = (ok ? 'Хорошо: ' : 'Плохо: ') + text;
+      results = results.filter(function (r) { return r.title !== 'WebSocket 30 с'; });
+      results.push({ status: ok ? 'PASS' : 'FAIL', title: 'WebSocket 30 с', detail: text });
+      wsRun = false;
+    }, 30000);
+  }
+
   function buildReport() {
-    var lines = ['HopSpeak · отчёт теста базы', 'Время (UTC): ' + new Date().toISOString(), 'Адрес: ' + SUPABASE_URL, ''];
+    var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+    var lines = ['HopSpeak · отчёт теста базы', 'Время (UTC): ' + new Date().toISOString(), 'Часовой пояс: ' + tz,
+      'Страна: ' + ($('fCountry').value || '—'), 'Провайдер/оператор: ' + ($('fIsp').value || '—'), 'VPN: ' + ($('fVpn').value || '—'),
+      'Браузер: ' + navigator.userAgent, 'Адрес: ' + SUPABASE_URL, ''];
     results.forEach(function (r) { lines.push('[' + r.status + '] ' + r.title + (r.detail ? ' — ' + r.detail : '')); });
     $('rep').value = lines.join('\n');
   }
@@ -178,6 +353,9 @@
     }); };
     $('btnOut').onclick = function () { guard(async function () { await db.auth.signOut(); await refreshWho(); }); };
     $('btnRun').onclick = function () { guard(runChecks); };
+    wireChat(); showMyId();
+    db.auth.onAuthStateChange(function () { showMyId(); });
+    $('btnWs').onclick = runWs;
     $('btnReport').onclick = buildReport;
     $('btnCopy').onclick = function () {
       buildReport();
