@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HopSpeak · тест базы</title>
+<style>
+  :root { --bg:#14121a; --card:#1c1925; --line:#2c2838; --fg:#f1eef7; --dim:#a9a3b9; --acc:#9b6bff; --ok:#4cc38a; --bad:#ff6b6b; --warn:#f5b942; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.45 system-ui, sans-serif; padding:16px; max-width:640px; margin-inline:auto; }
+  h1 { font-size:22px; margin:8px 0 4px; }
+  p.dim { color:var(--dim); margin:0 0 14px; font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .card h2 { font-size:16px; margin:0 0 8px; }
+  button { background:var(--acc); color:#fff; border:0; border-radius:10px; padding:12px 14px; font:inherit; font-weight:600; width:100%; margin-top:8px; }
+  button.sec { background:#2c2838; }
+  button:disabled { opacity:.5; }
+  input { width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line); background:#0e0d13; color:var(--fg); font:inherit; margin-top:8px; }
+  .row { padding:8px 0; border-top:1px solid var(--line); font-size:14px; }
+  .row:first-child { border-top:0; }
+  .tag { display:inline-block; min-width:44px; text-align:center; border-radius:6px; padding:1px 6px; font-size:12px; font-weight:700; margin-right:8px; }
+  .PASS { background:#173d2c; color:var(--ok); } .FAIL { background:#4a1f24; color:var(--bad); } .INFO { background:#3a3118; color:var(--warn); }
+  .det { color:var(--dim); font-size:13px; word-break:break-word; display:block; margin-top:2px; }
+  textarea { width:100%; min-height:120px; background:#0e0d13; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:10px; font:13px/1.4 ui-monospace, monospace; margin-top:8px; }
+</style>
+</head>
+<body>
+<h1>HopSpeak · тест базы</h1>
+<p class="dim">Проверяем, что база Supabase пускает только то, что нужно: своё можно читать и менять, чужое и запретное нет.</p>
+
+<div class="card">
+  <h2>1. Вход</h2>
+  <div id="who" class="dim">Не выполнен вход.</div>
+  <button id="btnGuest">Войти гостем</button>
+  <input id="email" type="email" placeholder="Почта (для входа не гостем)" autocomplete="email">
+  <input id="pass" type="password" placeholder="Пароль (не меньше 6 символов)" autocomplete="current-password">
+  <button id="btnSignup" class="sec">Зарегистрироваться по почте</button>
+  <button id="btnLogin" class="sec">Войти по почте и паролю</button>
+  <button id="btnOut" class="sec">Выйти</button>
+  <p class="dim" style="margin-top:10px">Регистрация по почте отправляет письмо с подтверждением. Бесплатная почта Supabase шлёт мало писем в час, поэтому для первого теста хватит гостевого входа.</p>
+</div>
+
+<div class="card">
+  <h2>2. Проверки</h2>
+  <button id="btnRun">Запустить проверки</button>
+  <div id="res"></div>
+</div>
+
+<div class="card">
+  <h2>3. Отчёт</h2>
+  <button id="btnReport" class="sec">Собрать отчёт для копирования</button>
+  <textarea id="rep" readonly placeholder="Здесь появится отчёт"></textarea>
+  <button id="btnCopy" class="sec">Скопировать отчёт</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(function () {
+  // Адрес проекта и публичный ключ. Это не секреты: ключ рассчитан на приложение, его защищают правила доступа в базе.
+  var SUPABASE_URL = 'https://wscupvqkhspeajdcgjus.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_ZDtjYcn8F3O2K_HMTLDnIQ_tWc5yxxC';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var db = null, results = [];
+
+  function init() {
+    if (!window.supabase) { $('who').textContent = 'Не загрузилась библиотека supabase-js. Проверьте интернет или VPN.'; return false; }
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    return true;
+  }
+
+  function msg(e) { return e ? (e.message || e.code || String(e)) : ''; }
+
+  async function refreshWho() {
+    var r = await db.auth.getSession();
+    var s = r.data && r.data.session;
+    if (!s) { $('who').textContent = 'Не выполнен вход.'; return null; }
+    var u = s.user;
+    $('who').textContent = 'Вы вошли: ' + (u.is_anonymous ? 'гость' : (u.email || 'пользователь')) + ' · id ' + u.id.slice(0, 8) + '…';
+    return u;
+  }
+
+  async function guard(fn) {
+    try { await fn(); } catch (e) { $('who').textContent = 'Ошибка: ' + msg(e); }
+  }
+
+  function add(status, title, detail) {
+    results.push({ status: status, title: title, detail: detail || '' });
+    var row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = '<span class="tag ' + status + '"></span><b></b><span class="det"></span>';
+    row.querySelector('.tag').textContent = status;
+    row.querySelector('b').textContent = title;
+    row.querySelector('.det').textContent = detail || '';
+    $('res').appendChild(row);
+  }
+
+  function uuid() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    return '00000000-0000-4000-8000-' + String(Date.now()).padStart(12, '0').slice(-12);
+  }
+
+  async function runChecks() {
+    $('res').innerHTML = ''; results = [];
+    var u = await refreshWho();
+    if (!u) { add('FAIL', 'Нет входа', 'Сначала войдите гостем или по почте.'); return; }
+    add('INFO', 'Кто вошёл', (u.is_anonymous ? 'гость' : 'обычный пользователь') + ', id ' + u.id);
+
+    // 1. Свой профиль читается.
+    var p = await db.from('profiles').select('*').eq('id', u.id).maybeSingle();
+    if (p.error) add('FAIL', 'Чтение своего профиля', msg(p.error));
+    else if (!p.data) add('FAIL', 'Чтение своего профиля', 'Строка не найдена: профиль не создался автоматически.');
+    else add('PASS', 'Чтение своего профиля', 'имя: ' + p.data.name + ', гость: ' + p.data.is_guest);
+
+    // 2. Свои настройки читаются.
+    var st = await db.from('user_settings').select('user_id').eq('user_id', u.id);
+    if (st.error) add('FAIL', 'Чтение своих настроек', msg(st.error));
+    else add(st.data && st.data.length === 1 ? 'PASS' : 'FAIL', 'Чтение своих настроек', 'строк: ' + (st.data ? st.data.length : 0));
+
+    // 3. Имя менять можно.
+    var newName = 'Тест-' + Math.floor(Math.random() * 900 + 100);
+    var up = await db.from('profiles').update({ name: newName }).eq('id', u.id).select('name');
+    if (up.error) add('FAIL', 'Смена своего имени', msg(up.error));
+    else add(up.data && up.data.length === 1 && up.data[0].name === newName ? 'PASS' : 'FAIL', 'Смена своего имени', up.data && up.data[0] ? 'стало: ' + up.data[0].name : 'строка не изменилась');
+
+    // 4. Запретное поле менять нельзя.
+    var bad = await db.from('profiles').update({ is_guest: !u.is_anonymous }).eq('id', u.id).select('is_guest');
+    if (bad.error) add('PASS', 'Нельзя менять is_guest', 'отказано: ' + msg(bad.error));
+    else add('FAIL', 'Нельзя менять is_guest', 'ИЗМЕНЕНИЕ ПРОШЛО. Это дыра в правах, пришлите отчёт.');
+
+    // 5. Писать сообщение в несуществующий чат нельзя.
+    var m = await db.from('messages').insert({ chat_id: uuid(), author_id: u.id, body: 'тест' });
+    if (m.error) add('PASS', 'Нельзя писать в чужой или несуществующий чат', 'отказано: ' + msg(m.error));
+    else add('FAIL', 'Нельзя писать в чужой или несуществующий чат', 'ЗАПИСЬ ПРОШЛА. Это дыра, пришлите отчёт.');
+
+    // 6. Создавать профиль напрямую нельзя.
+    var ip = await db.from('profiles').insert({ id: uuid(), name: 'Чужой' });
+    if (ip.error) add('PASS', 'Нельзя создать чужой профиль', 'отказано: ' + msg(ip.error));
+    else add('FAIL', 'Нельзя создать чужой профиль', 'ЗАПИСЬ ПРОШЛА. Это дыра, пришлите отчёт.');
+
+    // 7. Функция из public вызывается.
+    var rp = await db.rpc('can_join_voice_room', { rid: uuid() });
+    if (rp.error) add('FAIL', 'Вызов can_join_voice_room', msg(rp.error) + ' (функции могут быть закрыты настройкой Data API)');
+    else add(rp.data === false ? 'PASS' : 'FAIL', 'Вызов can_join_voice_room', 'ответ: ' + rp.data + ' (ожидалось false для несуществующей комнаты)');
+
+    // 8. Схема private снаружи недоступна.
+    var pv = await db.schema('private').rpc('is_channel_member', { cid: uuid() });
+    if (pv.error) add('PASS', 'Схема private закрыта', 'отказано: ' + msg(pv.error));
+    else add('FAIL', 'Схема private закрыта', 'ВЫЗОВ ПРОШЁЛ. Это дыра, пришлите отчёт.');
+
+    var fails = results.filter(function (r) { return r.status === 'FAIL'; }).length;
+    add('INFO', 'Итог', fails === 0 ? 'Все проверки пройдены.' : 'Не пройдено: ' + fails + '. Нажмите «Собрать отчёт» и пришлите мне.');
+  }
+
+  function buildReport() {
+    var lines = ['HopSpeak · отчёт теста базы', 'Время (UTC): ' + new Date().toISOString(), 'Адрес: ' + SUPABASE_URL, ''];
+    results.forEach(function (r) { lines.push('[' + r.status + '] ' + r.title + (r.detail ? ' — ' + r.detail : '')); });
+    $('rep').value = lines.join('\n');
+  }
+
+  function wire() {
+    if (!init()) return;
+    refreshWho();
+    $('btnGuest').onclick = function () { guard(async function () {
+      var r = await db.auth.signInAnonymously();
+      if (r.error) throw r.error;
+      await refreshWho();
+    }); };
+    $('btnSignup').onclick = function () { guard(async function () {
+      var r = await db.auth.signUp({ email: $('email').value.trim(), password: $('pass').value });
+      if (r.error) throw r.error;
+      $('who').textContent = r.data.session ? 'Регистрация прошла, вы вошли.' : 'Письмо отправлено. Подтвердите почту, потом нажмите «Войти по почте».';
+    }); };
+    $('btnLogin').onclick = function () { guard(async function () {
+      var r = await db.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+      if (r.error) throw r.error;
+      await refreshWho();
+    }); };
+    $('btnOut').onclick = function () { guard(async function () { await db.auth.signOut(); await refreshWho(); }); };
+    $('btnRun').onclick = function () { guard(runChecks); };
+    $('btnReport').onclick = buildReport;
+    $('btnCopy').onclick = function () {
+      buildReport();
+      var t = $('rep');
+      t.select();
+      try { navigator.clipboard.writeText(t.value).then(function () { $('btnCopy').textContent = 'Скопировано'; }, function () { document.execCommand('copy'); }); }
+      catch (e) { document.execCommand('copy'); }
+    };
+  }
+  wire();
+})();
+</script>
+</body>
+</html>
