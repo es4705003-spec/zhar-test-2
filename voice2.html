@@ -113,6 +113,7 @@ window.__PCS = [];
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function () {
+  var FN_NAME = 'smart-endpoint'; /* имя функции в Supabase, где лежит код livekit-token.ts */
   var SUPABASE_URL = 'https://wscupvqkhspeajdcgjus.supabase.co', SUPABASE_KEY = 'sb_publishable_ZDtjYcn8F3O2K_HMTLDnIQ_tWc5yxxC', TURNSTILE_SITEKEY = '0x4AAAAAAGST0bB60KzZXCj-';
   var CFG = { host: 'https://zar-xz0v8cyu.livekit.cloud', sdk: ['https://cdn.jsdelivr.net/npm/livekit-client@2.15.13/dist/livekit-client.umd.min.js', 'https://unpkg.com/livekit-client@2.15.13/dist/livekit-client.umd.min.js'] };
   var $ = function (id) { return document.getElementById(id); };
@@ -226,7 +227,7 @@ window.__PCS = [];
     var code = ($('code').value || '').trim().toLowerCase();
     if (!me) throw new Error('сначала войдите (гостем или по почте)');
     if (!/^[a-z0-9]{8,12}$/.test(code)) throw new Error('нет кода комнаты. Откройте ссылку с #кодом или нажмите «Создать комнату»');
-    var t = Date.now(), r = await db.functions.invoke('livekit-token', { body: { kind: 'quick', id: code } });
+    var t = Date.now(), r = await db.functions.invoke(FN_NAME, { body: { kind: 'quick', id: code } });
     if (r.error) {
       var st = '?', msg = r.error.message || String(r.error);
       try { st = r.error.context.status; var j = await r.error.context.json(); msg = j.error || msg; } catch (e) {}
