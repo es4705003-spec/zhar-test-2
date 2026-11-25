@@ -31,6 +31,8 @@
 <div class="card">
   <h2>1. Вход</h2>
   <div id="who" class="dim">Не выполнен вход.</div>
+  <div id="captchaBox" style="margin:8px 0"></div>
+  <div id="captchaNote" class="dim" hidden></div>
   <button id="btnGuest">Войти гостем</button>
   <input id="email" type="email" placeholder="Почта (для входа не гостем)" autocomplete="email">
   <input id="pass" type="password" placeholder="Пароль (не меньше 6 символов)" autocomplete="current-password">
@@ -98,8 +100,44 @@
   var SUPABASE_URL = 'https://wscupvqkhspeajdcgjus.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_ZDtjYcn8F3O2K_HMTLDnIQ_tWc5yxxC';
 
+  // Капча Cloudflare Turnstile. Сюда вставляется ПУБЛИЧНЫЙ ключ сайта (Site key), он не секрет.
+  // Секретный ключ (Secret key) вводится только в панели Supabase и сюда не попадает никогда.
+  // Пока строка пустая, капча выключена и вход работает как раньше.
+  var TURNSTILE_SITEKEY = '';
+
   var $ = function (id) { return document.getElementById(id); };
   var db = null, results = [];
+  var cap = { id: null, token: null, ready: false };
+
+  function setupCaptcha() {
+    if (!TURNSTILE_SITEKEY) return;
+    var note = $('captchaNote'); note.hidden = false; note.textContent = 'Загружается проверка «я не робот»…';
+    window.__onTurnstile = function () {
+      cap.ready = true;
+      cap.id = window.turnstile.render('#captchaBox', {
+        sitekey: TURNSTILE_SITEKEY,
+        callback: function (t) { cap.token = t; note.textContent = 'Проверка пройдена.'; },
+        'expired-callback': function () { cap.token = null; note.textContent = 'Проверка устарела, пройдите её снова.'; },
+        'error-callback': function () { cap.token = null; note.textContent = 'Проверка не загрузилась или не прошла. Попробуйте обновить страницу или отключить VPN.'; }
+      });
+    };
+    var s = document.createElement('script');
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=__onTurnstile';
+    s.async = true;
+    s.onerror = function () { note.textContent = 'Не удалось загрузить проверку Cloudflare. Проверьте интернет или VPN.'; };
+    document.head.appendChild(s);
+  }
+
+  // Токен капчи для одного входа. Токен одноразовый, после использования виджет сбрасывается.
+  function takeCaptcha() {
+    if (!TURNSTILE_SITEKEY) return undefined;
+    if (!cap.token) throw new Error('Сначала пройдите проверку «я не робот» над кнопками.');
+    var t = cap.token; cap.token = null;
+    return t;
+  }
+  function resetCaptcha() {
+    if (TURNSTILE_SITEKEY && window.turnstile && cap.id !== null) { try { window.turnstile.reset(cap.id); } catch (e) {} $('captchaNote').textContent = 'Пройдите проверку снова для следующего входа.'; }
+  }
 
   function init() {
     if (!window.supabase) { $('who').textContent = 'Не загрузилась библиотека supabase-js. Проверьте интернет или VPN.'; return false; }
@@ -336,18 +374,29 @@
   function wire() {
     if (!init()) return;
     refreshWho();
+    setupCaptcha();
     $('btnGuest').onclick = function () { guard(async function () {
-      var r = await db.auth.signInAnonymously();
+      var t = takeCaptcha();
+      var r = await db.auth.signInAnonymously(t ? { options: { captchaToken: t } } : undefined);
+      resetCaptcha();
       if (r.error) throw r.error;
       await refreshWho();
     }); };
     $('btnSignup').onclick = function () { guard(async function () {
-      var r = await db.auth.signUp({ email: $('email').value.trim(), password: $('pass').value });
+      var t = takeCaptcha();
+      var o = { email: $('email').value.trim(), password: $('pass').value };
+      if (t) o.options = { captchaToken: t };
+      var r = await db.auth.signUp(o);
+      resetCaptcha();
       if (r.error) throw r.error;
       $('who').textContent = r.data.session ? 'Регистрация прошла, вы вошли.' : 'Письмо отправлено. Подтвердите почту, потом нажмите «Войти по почте».';
     }); };
     $('btnLogin').onclick = function () { guard(async function () {
-      var r = await db.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+      var t = takeCaptcha();
+      var o = { email: $('email').value.trim(), password: $('pass').value };
+      if (t) o.options = { captchaToken: t };
+      var r = await db.auth.signInWithPassword(o);
+      resetCaptcha();
       if (r.error) throw r.error;
       await refreshWho();
     }); };
