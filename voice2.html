@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HopSpeak · тест комнаты</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20128%20128%22%3E%3Crect%20width%3D%22128%22%20height%3D%22128%22%20rx%3D%2228%22%20fill%3D%22%2314121a%22/%3E%3Cg%20transform%3D%22translate%2824%2024%29%20scale%281.25%29%22%3E%3Cmask%20id%3D%22m%22%20maskUnits%3D%22userSpaceOnUse%22%20x%3D%220%22%20y%3D%220%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%23fff%22/%3E%3Cpath%20d%3D%22M22%2018V36M40%2018V36M22%2031A9%209%200%200%201%2040%2031%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%224.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Ccircle%20cx%3D%2252%22%20cy%3D%2212%22%20r%3D%2210%22%20fill%3D%22%23000%22/%3E%3C/mask%3E%0A%3Cg%20mask%3D%22url%28%23m%29%22%3E%3Crect%20x%3D%226%22%20y%3D%228%22%20width%3D%2250%22%20height%3D%2238%22%20rx%3D%2214%22%20fill%3D%22%239b6bff%22/%3E%3Cpath%20d%3D%22M13%2042L11%2058L30%2044Z%22%20fill%3D%22%239b6bff%22/%3E%3C/g%3E%0A%3Ccircle%20cx%3D%2252%22%20cy%3D%2212%22%20r%3D%227%22%20fill%3D%22%23ff7cc8%22/%3E%3C/g%3E%3C/svg%3E">
+<style>
+:root { color-scheme: dark; --bg:#130808; --card:#261210; --card2:#321816; --line:#43201a; --fg:#fdeee2; --muted:#b98f80; --red:#e5372a; --orange:#ff7a1a; --yellow:#ffc933; --ok:#7fd36b; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding:16px; }
+main { max-width:520px; margin:0 auto; }
+h1 { font-size:24px; margin:8px 0 4px; }
+h2 { font-size:13px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin:22px 0 8px; }
+p { margin:6px 0; color:var(--muted); }
+.card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px 14px; }
+.row { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line); }
+.row:last-child { border-bottom:0; }
+.row span:first-child { color:var(--muted); }
+.row span:last-child { text-align:right; overflow-wrap:anywhere; min-width:0; }
+.ok { color:var(--ok); } .bad { color:#ff8a7d; } .wait { color:var(--yellow); }
+input, select, textarea { width:100%; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:12px; padding:11px 12px; font:inherit; margin-top:6px; }
+label { display:block; margin-top:10px; color:var(--muted); font-size:13px; }
+label.chk { display:flex; gap:10px; align-items:flex-start; color:var(--fg); }
+label.chk input { width:auto; margin:4px 0 0; }
+button { font:inherit; border:0; border-radius:14px; padding:13px 18px; cursor:pointer; font-weight:700; }
+.go { background:linear-gradient(135deg,var(--orange),var(--red)); color:#fff; width:100%; margin-top:14px; }
+.sec { background:var(--card2); color:var(--fg); }
+.btns { display:flex; gap:10px; margin-top:10px; }
+.btns button { flex:1; }
+button:disabled { opacity:.5; cursor:default; }
+.pt { display:flex; align-items:center; gap:10px; padding:7px 0; }
+.av { width:34px; height:34px; border-radius:50%; background:var(--orange); color:#2b0b04; display:grid; place-items:center; font-weight:800; flex:none; box-shadow:0 0 0 0 transparent; transition:box-shadow .15s; }
+.pt.speaking .av { box-shadow:0 0 0 3px var(--bg), 0 0 0 6px var(--yellow); }
+textarea { height:190px; font:12px/1.4 ui-monospace,Menlo,Consolas,monospace; }
+.note { font-size:13px; color:var(--yellow); margin-top:8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1 style="display:flex;align-items:center;gap:10px"><span style="width:36px;height:36px;flex:none;display:inline-block"><svg width="36" height="36" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M22 18V36M40 18V36M22 31A9 9 0 0 1 40 31" fill="none" stroke="#000" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="12" r="10" fill="#000"/></mask>
+<g mask="url(#m)"><rect x="6" y="8" width="50" height="38" rx="14" fill="#9b6bff"/><path d="M13 42L11 58L30 44Z" fill="#9b6bff"/></g>
+<circle cx="52" cy="12" r="7" fill="#ff7cc8"/></svg></span>HopSpeak · тест комнаты</h1>
+  <p>Проверяем всю цепочку на настоящих сервисах: вход (гостем или по почте), проверку «я не робот», пропуск от сервера и голосовую комнату. Звук не записывается.</p>
+
+  <h2>1. Проверка сети</h2>
+  <div class="card" id="checks"></div>
+
+  <h2>2. Расскажите о себе</h2>
+  <div class="card">
+    <label>Страна <input id="country" placeholder="Например, Беларусь" autocomplete="off"></label>
+    <label>Провайдер или мобильный оператор <input id="provider" placeholder="Например, A1, МТС, Билайн, Ростелеком" autocomplete="off"></label>
+    <label>Используете VPN?
+      <select id="vpn"><option value="не указано">Выберите</option><option value="нет">Нет</option><option value="да">Да</option></select>
+    </label>
+  </div>
+
+  <h2>3. Вход в аккаунт</h2>
+  <div class="card">
+    <div id="who">Не выполнен вход.</div>
+    <div id="captchaBox" style="margin:8px 0"></div>
+    <div class="note" id="captchaNote" hidden></div>
+    <button class="go" id="btnGuest">Войти гостем</button>
+    <label>Почта (для входа не гостем) <input id="email" type="email" autocomplete="email"></label>
+    <label>Пароль <input id="pass" type="password" autocomplete="current-password"></label>
+    <div class="btns"><button class="sec" id="btnLogin">Войти по почте</button><button class="sec" id="btnOut">Выйти</button></div>
+    <div class="note" id="authNote"></div>
+  </div>
+
+  <h2>4. Комната</h2>
+  <div class="card">
+    <p>Комнату создаёт зарегистрированный пользователь, гость только входит по коду. Код можно отправить ссылкой.</p>
+    <button class="sec" id="mk" style="width:100%;margin-top:6px">Создать комнату (только по почте)</button>
+    <label>Код комнаты <input id="code" maxlength="12" autocomplete="off" autocapitalize="none" placeholder="8–12 латинских букв и цифр"></label>
+    <div class="note" id="invite"></div>
+    <label class="chk"><input type="checkbox" id="relay"><span>Через ретранслятор. Включайте, только если обычный вход не сработал.</span></label>
+    <button class="go" id="join" disabled>Загрузка…</button>
+    <div class="btns" id="liveBtns" hidden>
+      <button class="sec" id="mic">Выключить микрофон</button>
+      <button class="sec" id="leave">Выйти</button>
+    </div>
+    <button class="go" id="audioBtn" hidden>Включить звук собеседников</button>
+    <div class="note" id="status"></div>
+  </div>
+
+  <h2>Кто в комнате</h2>
+  <div class="card" id="people"><p>Пока вы не вошли.</p></div>
+
+  <h2>Состояние связи</h2>
+  <div class="card" id="live"></div>
+
+  <h2>5. Отчёт</h2>
+  <div class="card">
+    <p>Нажмите «Скопировать» и отправьте текст тому, кто просил вас о тесте. В нём нет вашего IP-адреса.</p>
+    <textarea id="report" readonly></textarea>
+    <div class="btns"><button class="go" id="copy" style="margin-top:0">Скопировать отчёт</button></div>
+  </div>
+</main>
+
+<script>
+/* Перехватываем создание WebRTC-соединений, чтобы потом читать статистику. Должно стоять до загрузки библиотеки. */
+window.__PCS = [];
+(function () {
+  var Orig = window.RTCPeerConnection;
+  if (!Orig) return;
+  window.RTCPeerConnection = class extends Orig { constructor() { super(...arguments); window.__PCS.push(this); var pc = this, n = window.__PCS.length;
+    pc.addEventListener('iceconnectionstatechange', function () { window.__onIce && window.__onIce('ICE#' + n + ': ' + pc.iceConnectionState); });
+    pc.addEventListener('connectionstatechange', function () { window.__onIce && window.__onIce('PC#' + n + ': ' + pc.connectionState); }); } };
+})();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(function () {
+  var SUPABASE_URL = 'https://wscupvqkhspeajdcgjus.supabase.co', SUPABASE_KEY = 'sb_publishable_ZDtjYcn8F3O2K_HMTLDnIQ_tWc5yxxC', TURNSTILE_SITEKEY = '0x4AAAAAAGST0bB60KzZXCj-';
+  var CFG = { host: 'https://zar-xz0v8cyu.livekit.cloud', sdk: ['https://cdn.jsdelivr.net/npm/livekit-client@2.15.13/dist/livekit-client.umd.min.js', 'https://unpkg.com/livekit-client@2.15.13/dist/livekit-client.umd.min.js'] };
+  var $ = function (id) { return document.getElementById(id); };
+  var t0 = Date.now(), logLines = [];
+  var room = null, statsTimer = null, relayOn = false, db = null, me = null, cap = { id: null, token: null };
+  var R = { sdk: ['Библиотека LiveKit', 'wait', 'загружается'], reach: ['Сервер LiveKit доступен', 'wait', 'проверяется'], auth: ['Вход в аккаунт', 'wait', 'ещё нет'], captcha: ['Проверка «я не робот»', 'wait', 'ещё нет'], token: ['Пропуск от сервера', 'wait', 'ещё не запрошен'], connect: ['Подключение', 'wait', 'ещё нет'], mic: ['Микрофон', 'wait', 'ещё нет'], sent: ['Ваш звук уходит', 'wait', 'ещё нет'], audio: ['Чужой звук приходит', 'wait', 'ещё нет'] };
+  var S = { pair: '—', rtt: '—', loss: '—', jitter: '—', quality: '—', state: '—' };
+
+  window.__onIce = function (m) { L(m); };
+  function L(msg) { logLines.push(((Date.now() - t0) / 1000).toFixed(1) + 'с ' + msg); if (logLines.length > 200) logLines.shift(); report(); }
+  function set(key, state, text) { R[key][1] = state; R[key][2] = text; L(R[key][0] + ': ' + text); drawChecks(); }
+  function drawChecks() {
+    $('checks').innerHTML = Object.keys(R).map(function (k) { var r = R[k]; return '<div class="row"><span>' + r[0] + '</span><span class="' + r[1] + '">' + r[2] + '</span></div>'; }).join('');
+    $('live').innerHTML = [['Состояние', S.state], ['Тип соединения', S.pair], ['Задержка', S.rtt], ['Потери пакетов', S.loss], ['Дрожание', S.jitter], ['Оценка качества', S.quality]].map(function (x) { return '<div class="row"><span>' + x[0] + '</span><span>' + x[1] + '</span></div>'; }).join('');
+    report();
+  }
+  function status(t) { $('status').textContent = t || ''; }
+  function conn() { try { var c = navigator.connection; return c ? (c.effectiveType || '?') + (c.downlink ? ', ~' + c.downlink + ' Мбит/с' : '') : 'нет данных'; } catch (e) { return 'нет данных'; } }
+  function report() {
+    var lines = ['HopSpeak · отчёт теста голоса', 'Время (UTC): ' + new Date().toISOString(), 'Часовой пояс: ' + (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return '?'; } })(),
+      'Страна: ' + ($('country').value || 'не указана'), 'Провайдер/оператор: ' + ($('provider').value || 'не указан'), 'VPN: ' + $('vpn').value,
+      'Режим ретранслятора: ' + (relayOn ? 'да' : 'нет'), 'Вход: ' + (me ? (me.is_anonymous ? 'гость' : 'по почте') : 'нет'), 'Браузер: ' + navigator.userAgent, 'Сеть по данным браузера: ' + conn(), ''];
+    Object.keys(R).forEach(function (k) { lines.push(R[k][0] + ': ' + R[k][2]); });
+    lines.push('Тип соединения: ' + S.pair, 'Задержка: ' + S.rtt, 'Потери пакетов: ' + S.loss, 'Дрожание: ' + S.jitter, 'Оценка качества: ' + S.quality, '', 'Журнал:');
+    $('report').value = lines.concat(logLines.slice(-40)).join('\n');
+  }
+
+  /* ---------- библиотека ---------- */
+  function loadScript(src) { return new Promise(function (ok, fail) { var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = function () { fail(new Error('не загрузился ' + src)); }; document.head.appendChild(s); }); }
+  async function loadSdk() {
+    for (var i = 0; i < CFG.sdk.length; i++) {
+      var t = Date.now();
+      try { await loadScript(CFG.sdk[i]); if (window.LivekitClient) { set('sdk', 'ok', 'загружена с ' + new URL(CFG.sdk[i]).host + ' за ' + (Date.now() - t) + ' мс'); return true; } }
+      catch (e) { L('Библиотека: ' + e.message); }
+    }
+    set('sdk', 'bad', 'не загрузилась ни с одного адреса');
+    return false;
+  }
+  async function checkReach() {
+    var t = Date.now();
+    try { await fetch(CFG.host, { mode: 'no-cors', cache: 'no-store' }); set('reach', 'ok', 'отвечает за ' + (Date.now() - t) + ' мс'); }
+    catch (e) { set('reach', 'bad', 'не отвечает (' + (e.message || 'ошибка сети') + ')'); }
+  }
+
+  /* ---------- вход, капча ---------- */
+  function setupCaptcha() {
+    var note = $('captchaNote'); note.hidden = false; note.textContent = 'Загружается проверка «я не робот»…';
+    var t = Date.now();
+    window.__onTurnstile = function () {
+      cap.id = window.turnstile.render('#captchaBox', { sitekey: TURNSTILE_SITEKEY,
+        callback: function (tk) { cap.token = tk; note.textContent = 'Проверка пройдена.'; set('captcha', 'ok', 'пройдена, виджет работал ' + Math.round((Date.now() - t) / 1000) + ' с'); },
+        'expired-callback': function () { cap.token = null; note.textContent = 'Проверка устарела, пройдите её снова.'; },
+        'error-callback': function () { cap.token = null; note.textContent = 'Проверка не загрузилась или не прошла. Попробуйте обновить страницу или отключить VPN.'; set('captcha', 'bad', 'сбой виджета'); } });
+    };
+    var sc = document.createElement('script'); sc.async = true;
+    sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=__onTurnstile';
+    sc.onerror = function () { note.textContent = 'Не удалось загрузить проверку Cloudflare.'; set('captcha', 'bad', 'скрипт Cloudflare не загрузился'); };
+    document.head.appendChild(sc);
+  }
+  function takeCaptcha() { if (!cap.token) throw new Error('Сначала пройдите проверку «я не робот» над кнопками.'); var t = cap.token; cap.token = null; return t; }
+  function resetCaptcha() { try { window.turnstile.reset(cap.id); $('captchaNote').textContent = 'Для следующего входа пройдите проверку снова.'; } catch (e) {} }
+  function authNote(t) { $('authNote').textContent = t || ''; }
+  async function refreshWho() {
+    var r = await db.auth.getSession(), s = r.data && r.data.session;
+    if (!s) { me = null; $('who').textContent = 'Не выполнен вход.'; set('auth', 'wait', 'нет входа'); return null; }
+    me = s.user;
+    var kind = me.is_anonymous ? 'гость' : 'по почте';
+    $('who').textContent = 'Вы вошли: ' + (me.is_anonymous ? 'гость' : (me.email || 'пользователь')) + ' · id ' + me.id.slice(0, 8) + '…';
+    set('auth', 'ok', kind + ', id ' + me.id.slice(0, 8)); return me;
+  }
+  async function guestLogin() {
+    authNote(''); var tk; try { tk = takeCaptcha(); } catch (e) { authNote(e.message); return; }
+    var r = await db.auth.signInAnonymously({ options: { captchaToken: tk } }); resetCaptcha();
+    if (r.error) { authNote('Ошибка входа: ' + r.error.message); set('auth', 'bad', r.error.message); return; }
+    await refreshWho();
+  }
+  async function mailLogin() {
+    authNote(''); var tk; try { tk = takeCaptcha(); } catch (e) { authNote(e.message); return; }
+    var r = await db.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value, options: { captchaToken: tk } }); resetCaptcha();
+    if (r.error) { authNote('Ошибка входа: ' + r.error.message); set('auth', 'bad', r.error.message); return; }
+    await refreshWho();
+  }
+  async function logout() { await db.auth.signOut(); await refreshWho(); }
+
+  /* ---------- комната и пропуск ---------- */
+  function newCode() { var al = 'abcdefghjkmnpqrstuvwxyz23456789', a = new Uint8Array(10); crypto.getRandomValues(a); return Array.from(a, function (x) { return al[x % al.length]; }).join(''); }
+  async function makeRoom() {
+    if (!me) { authNote('Сначала войдите по почте.'); return; }
+    if (me.is_anonymous) { authNote('Гость не может создавать комнаты, только входить по коду. Войдите по почте.'); return; }
+    var code = newCode();
+    var r = await db.from('quick_rooms').insert({ code: code, host_id: me.id, title: 'Тест голоса', max_people: 8 });
+    if (r.error) { $('invite').textContent = 'Не удалось создать комнату: ' + r.error.message; L('Создание комнаты: ' + r.error.message); return; }
+    $('code').value = code;
+    var link = location.origin + location.pathname + '#' + code;
+    $('invite').textContent = 'Комната создана на 12 часов. Ссылка для остальных: ' + link;
+    L('Комната создана, код ' + code);
+  }
+  async function getToken() {
+    var code = ($('code').value || '').trim().toLowerCase();
+    if (!me) throw new Error('сначала войдите (гостем или по почте)');
+    if (!/^[a-z0-9]{8,12}$/.test(code)) throw new Error('введите код комнаты: 8–12 латинских букв и цифр');
+    var t = Date.now(), r = await db.functions.invoke('livekit-token', { body: { kind: 'quick', id: code } });
+    if (r.error) {
+      var st = '?', msg = r.error.message || String(r.error);
+      try { st = r.error.context.status; var j = await r.error.context.json(); msg = j.error || msg; } catch (e) {}
+      throw new Error('функция ответила ' + st + ': ' + msg + ' (' + (Date.now() - t) + ' мс)');
+    }
+    if (!r.data || !r.data.token || !r.data.url) throw new Error('в ответе функции нет пропуска или адреса');
+    return { url: r.data.url, token: r.data.token, via: 'функция Supabase, ' + (Date.now() - t) + ' мс' };
+  }
+
+  /* ---------- участники ---------- */
+  function drawPeople() {
+    if (!room) { $('people').innerHTML = '<p>Пока вы не вошли.</p>'; return; }
+    var list = [room.localParticipant].concat(Array.from(room.remoteParticipants.values()));
+    $('people').innerHTML = list.map(function (p) {
+      var nm = p.name || p.identity || '?', me = p === room.localParticipant;
+      return '<div class="pt' + (p.isSpeaking ? ' speaking' : '') + '"><span class="av">' + nm.charAt(0).toUpperCase().replace(/[<>&"]/g, '?') + '</span><span>' + nm.replace(/[<>&"]/g, '?') + (me ? ' (вы)' : '') + '</span></div>';
+    }).join('');
+  }
+
+  /* ---------- статистика соединения ---------- */
+  async function readStats() {
+    var pair = null, lost = 0, recv = 0, jit = 0, sent = 0;
+    for (var i = 0; i < window.__PCS.length; i++) {
+      var pc = window.__PCS[i]; if (pc.connectionState === 'closed') continue;
+      var rep; try { rep = await pc.getStats(); } catch (e) { continue; }
+      var cands = {}, pairs = [];
+      rep.forEach(function (s) {
+        if (s.type === 'local-candidate' || s.type === 'remote-candidate') cands[s.id] = s;
+        if (s.type === 'candidate-pair' && s.state === 'succeeded' && (s.nominated || s.selected)) pairs.push(s);
+        if (s.type === 'inbound-rtp' && s.kind === 'audio') { lost += s.packetsLost || 0; recv += s.packetsReceived || 0; jit = Math.max(jit, s.jitter || 0); }
+        if (s.type === 'outbound-rtp' && s.kind === 'audio') sent += s.bytesSent || 0;
+      });
+      if (pairs.length && !pair) pair = { p: pairs[0], l: cands[pairs[0].localCandidateId], r: cands[pairs[0].remoteCandidateId] };
+    }
+    if (pair) {
+      var l = pair.l || {}, r = pair.r || {};
+      var way = l.candidateType === 'relay' ? 'через ретранслятор (' + (l.relayProtocol || l.protocol || '?') + ')' : (l.candidateType === 'host' || l.candidateType === 'srflx' || l.candidateType === 'prflx') ? 'напрямую (' + (l.protocol || '?') + ')' : (l.candidateType || '?');
+      S.pair = way + (r.candidateType ? ', сервер: ' + r.candidateType : '');
+      if (pair.p.currentRoundTripTime != null) S.rtt = Math.round(pair.p.currentRoundTripTime * 1000) + ' мс';
+    }
+    if (recv + lost > 0) S.loss = (lost / (lost + recv) * 100).toFixed(1) + '% (' + lost + ' из ' + (lost + recv) + ')';
+    if (recv > 0 || jit > 0) S.jitter = Math.round(jit * 1000) + ' мс';
+    if (sent > 0 && R.sent[1] !== 'ok') set('sent', 'ok', 'да, микрофон передаёт звук');
+    if (recv > 0 && R.audio[1] !== 'ok') set('audio', 'ok', 'да, звук собеседников доходит');
+    drawChecks();
+  }
+
+  /* ---------- вход ---------- */
+  function on(ev, fn) { var k = window.LivekitClient.RoomEvent[ev]; if (k) room.on(k, fn); else L('Нет события ' + ev); }
+  async function join() {
+    relayOn = $('relay').checked; $('join').disabled = true; status('Получаем пропуск…');
+    var tok;
+    try { set('token', 'wait', 'запрашивается'); tok = await getToken(); set('token', 'ok', 'получен (' + tok.via + ')'); }
+    catch (e) { set('token', 'bad', 'не получен: ' + e.message); status('Не удалось получить пропуск. Отправьте отчёт ниже.'); $('join').disabled = false; return; }
+    var LK = window.LivekitClient;
+    room = new LK.Room({ adaptiveStream: false, dynacast: false });
+    window.__PCS.length = 0; var mine = room;
+    on('ConnectionStateChanged', function (st) { S.state = String(st); L('Состояние: ' + st); drawChecks(); });
+    on('SignalReconnecting', function () { L('Обрыв сигнального канала'); });
+    on('Reconnecting', function () { S.state = 'переподключение…'; L('Переподключение'); drawChecks(); });
+    on('Reconnected', function () { S.state = 'connected'; L('Переподключились'); drawChecks(); });
+    on('Disconnected', function (reason) {
+      S.state = 'отключено'; L('Отключено, причина: ' + (reason === undefined ? 'не указана' : reason) + ', в комнате ' + Math.round((Date.now() - t0) / 1000) + ' с от открытия страницы'); drawChecks();
+      if (room === mine) {
+        clearInterval(statsTimer); room = null; $('join').hidden = false; $('join').disabled = false; $('liveBtns').hidden = true; $('audioBtn').hidden = true;
+        set('connect', 'bad', 'связь потеряна после входа (причина: ' + (reason === undefined ? '?' : reason) + ')');
+        status('Связь с комнатой потеряна. Нажмите «Войти в комнату», чтобы зайти снова. Отчёт ниже сохранил причину.'); drawPeople();
+      }
+    });
+    on('ConnectionQualityChanged', function (q, p) { if (p === room.localParticipant) { S.quality = String(q); drawChecks(); } });
+    on('ParticipantConnected', function (p) { L('Вошёл: ' + (p.name || p.identity)); drawPeople(); });
+    on('ParticipantDisconnected', function (p) { L('Вышел: ' + (p.name || p.identity)); drawPeople(); });
+    on('ActiveSpeakersChanged', function () { drawPeople(); });
+    on('MediaDevicesError', function (e) { L('Ошибка устройства: ' + (e && e.message)); });
+    on('AudioPlaybackStatusChanged', function () { $('audioBtn').hidden = room.canPlaybackAudio; });
+    on('TrackSubscribed', function (track) { if (track.kind === 'audio') { var el = track.attach(); el.style.display = 'none'; document.body.appendChild(el); L('Принят аудиопоток'); } });
+    status('Подключаемся…'); set('connect', 'wait', 'идёт подключение');
+    var t = Date.now();
+    try {
+      await room.connect(tok.url, tok.token, relayOn ? { rtcConfig: { iceTransportPolicy: 'relay' } } : undefined);
+      set('connect', 'ok', 'установлено за ' + (Date.now() - t) + ' мс');
+    } catch (e) {
+      set('connect', 'bad', 'не вышло: ' + (e.message || e)); status('Не удалось подключиться. Попробуйте режим ретранслятора или отправьте отчёт.');
+      try { room.disconnect(); } catch (x) {} room = null; $('join').disabled = false; drawPeople(); return;
+    }
+    var tm = Date.now();
+    try { await room.localParticipant.setMicrophoneEnabled(true); set('mic', 'ok', 'включён за ' + (Date.now() - tm) + ' мс'); }
+    catch (e) { var n = e && e.name, d = ' [' + (n || '?') + ': ' + ((e && e.message) || '') + ', ' + (Date.now() - tm) + ' мс]'; set('mic', 'bad', (n === 'NotAllowedError' ? 'доступ запрещён в браузере' : n === 'NotFoundError' ? 'микрофон не найден' : 'ошибка') + d); }
+    $('join').hidden = true; $('liveBtns').hidden = false; $('audioBtn').hidden = room.canPlaybackAudio;
+    status('Вы в комнате. Скажите что-нибудь и попросите остальных ответить.');
+    drawPeople(); clearInterval(statsTimer); statsTimer = setInterval(readStats, 2000); readStats();
+  }
+  function leave() {
+    clearInterval(statsTimer);
+    try { room.disconnect(); } catch (e) {}
+    room = null; $('join').hidden = false; $('join').disabled = false; $('liveBtns').hidden = true; $('audioBtn').hidden = true;
+    status('Вы вышли. Отчёт ниже можно скопировать.'); drawPeople();
+  }
+  async function toggleMic() {
+    if (!room) return;
+    if (String(room.state) !== 'connected') { L('Микрофон: нет связи с комнатой (' + room.state + ')'); status('Нет связи с комнатой, подождите переподключения или выйдите и зайдите снова.'); return; }
+    var enabled = room.localParticipant.isMicrophoneEnabled, b = $('mic'), t = Date.now();
+    b.disabled = true; b.textContent = enabled ? 'Выключаем…' : 'Включаем…';
+    try { await room.localParticipant.setMicrophoneEnabled(!enabled); L('Микрофон ' + (enabled ? 'выключен' : 'включён') + ' за ' + (Date.now() - t) + ' мс'); }
+    catch (e) { L('Микрофон: ' + (e && e.name) + ' ' + ((e && e.message) || e) + ' (' + (Date.now() - t) + ' мс)'); }
+    b.disabled = false; b.textContent = room.localParticipant.isMicrophoneEnabled ? 'Выключить микрофон' : 'Включить микрофон';
+  }
+  async function copy() {
+    var ta = $('report'); ta.select(); ta.setSelectionRange(0, 99999);
+    try { await navigator.clipboard.writeText(ta.value); $('copy').textContent = 'Скопировано'; }
+    catch (e) { try { document.execCommand('copy'); $('copy').textContent = 'Скопировано'; } catch (x) { $('copy').textContent = 'Выделите текст и скопируйте вручную'; } }
+    setTimeout(function () { $('copy').textContent = 'Скопировать отчёт'; }, 2500);
+  }
+
+  ['country', 'provider', 'vpn', 'relay'].forEach(function (id) { $(id).addEventListener('input', report); $(id).addEventListener('change', report); });
+  $('join').addEventListener('click', join); $('leave').addEventListener('click', leave); $('mic').addEventListener('click', toggleMic); $('copy').addEventListener('click', copy);
+  $('audioBtn').addEventListener('click', function () { room && room.startAudio().then(function () { $('audioBtn').hidden = true; }); });
+  if (!window.supabase) { authNote('Не загрузилась библиотека supabase-js. Проверьте интернет или VPN.'); set('auth', 'bad', 'библиотека не загрузилась'); }
+  else {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    $('btnGuest').addEventListener('click', guestLogin); $('btnLogin').addEventListener('click', mailLogin); $('btnOut').addEventListener('click', logout); $('mk').addEventListener('click', makeRoom);
+    refreshWho(); setupCaptcha();
+  }
+  var h = (location.hash || '').replace('#', '').toLowerCase(); if (/^[a-z0-9]{8,12}$/.test(h)) $('code').value = h;
+  drawChecks();
+  if (!window.isSecureContext) { status('Страница открыта не по https, микрофон работать не будет.'); }
+  loadSdk().then(function (ok) { $('join').disabled = !ok; $('join').textContent = ok ? 'Войти в комнату' : 'Библиотека не загрузилась'; });
+  checkReach();
+})();
+</script>
+</body>
+</html>
