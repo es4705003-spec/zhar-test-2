@@ -71,6 +71,7 @@ textarea { height:190px; font:12px/1.4 ui-monospace,Menlo,Consolas,monospace; }
   <div class="card">
     <p>Комнату создаёт зарегистрированный пользователь, гость только входит по коду. Код можно отправить ссылкой.</p>
     <button class="sec" id="mk" style="width:100%;margin-top:6px">Создать комнату (только по почте)</button>
+    <button class="sec" id="rmAll" style="width:100%;margin-top:6px">Удалить все мои комнаты</button>
     <label>Код комнаты <input id="code" maxlength="12" autocomplete="off" autocapitalize="none" placeholder="8–12 латинских букв и цифр"></label>
     <div class="note" id="invite"></div>
     <label class="chk"><input type="checkbox" id="relay"><span>Через ретранслятор. Включайте, только если обычный вход не сработал.</span></label>
@@ -159,10 +160,10 @@ window.__PCS = [];
   /* ---------- вход, капча ---------- */
   function setupCaptcha() {
     var note = $('captchaNote'); note.hidden = false; note.textContent = 'Загружается проверка «я не робот»…';
-    var t = Date.now();
+    window.__capT = Date.now();
     window.__onTurnstile = function () {
       cap.id = window.turnstile.render('#captchaBox', { sitekey: TURNSTILE_SITEKEY,
-        callback: function (tk) { cap.token = tk; note.textContent = 'Проверка пройдена.'; set('captcha', 'ok', 'пройдена, виджет работал ' + Math.round((Date.now() - t) / 1000) + ' с'); },
+        callback: function (tk) { cap.token = tk; note.textContent = 'Проверка пройдена.'; set('captcha', 'ok', 'пройдена за ' + Math.round((Date.now() - window.__capT) / 1000) + ' с'); },
         'expired-callback': function () { cap.token = null; note.textContent = 'Проверка устарела, пройдите её снова.'; },
         'error-callback': function () { cap.token = null; note.textContent = 'Проверка не загрузилась или не прошла. Попробуйте обновить страницу или отключить VPN.'; set('captcha', 'bad', 'сбой виджета'); } });
     };
@@ -172,7 +173,7 @@ window.__PCS = [];
     document.head.appendChild(sc);
   }
   function takeCaptcha() { if (!cap.token) throw new Error('Сначала пройдите проверку «я не робот» над кнопками.'); var t = cap.token; cap.token = null; return t; }
-  function resetCaptcha() { try { window.turnstile.reset(cap.id); $('captchaNote').textContent = 'Для следующего входа пройдите проверку снова.'; } catch (e) {} }
+  function resetCaptcha() { window.__capT = Date.now(); try { window.turnstile.reset(cap.id); $('captchaNote').textContent = 'Для следующего входа пройдите проверку снова.'; } catch (e) {} }
   function authNote(t) { $('authNote').textContent = t || ''; }
   async function refreshWho() {
     var r = await db.auth.getSession(), s = r.data && r.data.session;
@@ -203,16 +204,28 @@ window.__PCS = [];
     if (me.is_anonymous) { authNote('Гость не может создавать комнаты, только входить по коду. Войдите по почте.'); return; }
     var code = newCode();
     var r = await db.from('quick_rooms').insert({ code: code, host_id: me.id, title: 'Тест голоса', max_people: 8 });
-    if (r.error) { $('invite').textContent = 'Не удалось создать комнату: ' + r.error.message; L('Создание комнаты: ' + r.error.message); return; }
+    if (r.error) {
+      L('Создание комнаты: ' + r.error.message);
+      if (/too many quick rooms/.test(r.error.message)) {
+        var q = await db.from('quick_rooms').select('code,expires_at').eq('host_id', me.id).order('created_at', { ascending: false }).limit(1);
+        if (q.data && q.data.length) { $('code').value = q.data[0].code; $('invite').textContent = 'У вас уже 3 активные комнаты (это лимит). Подставил код последней: ' + q.data[0].code + '. Ссылка: ' + location.origin + location.pathname + '#' + q.data[0].code + ' Лишние можно удалить кнопкой ниже.'; return; }
+      }
+      $('invite').textContent = 'Не удалось создать комнату: ' + r.error.message; return;
+    }
     $('code').value = code;
     var link = location.origin + location.pathname + '#' + code;
     $('invite').textContent = 'Комната создана на 12 часов. Ссылка для остальных: ' + link;
     L('Комната создана, код ' + code);
   }
+  async function removeRooms() {
+    if (!me || me.is_anonymous) { authNote('Сначала войдите по почте.'); return; }
+    var r = await db.from('quick_rooms').delete().eq('host_id', me.id);
+    $('invite').textContent = r.error ? 'Не удалось удалить: ' + r.error.message : 'Ваши комнаты удалены. Можно создать новую.'; L('Удаление комнат: ' + (r.error ? r.error.message : 'ок'));
+  }
   async function getToken() {
     var code = ($('code').value || '').trim().toLowerCase();
     if (!me) throw new Error('сначала войдите (гостем или по почте)');
-    if (!/^[a-z0-9]{8,12}$/.test(code)) throw new Error('введите код комнаты: 8–12 латинских букв и цифр');
+    if (!/^[a-z0-9]{8,12}$/.test(code)) throw new Error('нет кода комнаты. Откройте ссылку с #кодом или нажмите «Создать комнату»');
     var t = Date.now(), r = await db.functions.invoke('livekit-token', { body: { kind: 'quick', id: code } });
     if (r.error) {
       var st = '?', msg = r.error.message || String(r.error);
@@ -334,7 +347,7 @@ window.__PCS = [];
   if (!window.supabase) { authNote('Не загрузилась библиотека supabase-js. Проверьте интернет или VPN.'); set('auth', 'bad', 'библиотека не загрузилась'); }
   else {
     db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    $('btnGuest').addEventListener('click', guestLogin); $('btnLogin').addEventListener('click', mailLogin); $('btnOut').addEventListener('click', logout); $('mk').addEventListener('click', makeRoom);
+    $('btnGuest').addEventListener('click', guestLogin); $('btnLogin').addEventListener('click', mailLogin); $('btnOut').addEventListener('click', logout); $('mk').addEventListener('click', makeRoom); $('rmAll').addEventListener('click', removeRooms);
     refreshWho(); setupCaptcha();
   }
   var h = (location.hash || '').replace('#', '').toLowerCase(); if (/^[a-z0-9]{8,12}$/.test(h)) $('code').value = h;
