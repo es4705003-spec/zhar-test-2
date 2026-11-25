@@ -113,7 +113,8 @@ window.__PCS = [];
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function () {
-  var FN_NAME = 'livekit-token'; /* имя функции в Supabase, где лежит код livekit-token.ts */
+  var FN_NAMES = ['livekit-token', 'smart-endpoint']; /* возможные адреса функции (slug в Supabase), пробуем по очереди */
+  var FN_NAME = FN_NAMES[0];
   var SUPABASE_URL = 'https://wscupvqkhspeajdcgjus.supabase.co', SUPABASE_KEY = 'sb_publishable_ZDtjYcn8F3O2K_HMTLDnIQ_tWc5yxxC', TURNSTILE_SITEKEY = '0x4AAAAAAGST0bB60KzZXCj-';
   var CFG = { host: 'https://zar-xz0v8cyu.livekit.cloud', sdk: ['https://cdn.jsdelivr.net/npm/livekit-client@2.15.13/dist/livekit-client.umd.min.js', 'https://unpkg.com/livekit-client@2.15.13/dist/livekit-client.umd.min.js'] };
   var $ = function (id) { return document.getElementById(id); };
@@ -135,7 +136,7 @@ window.__PCS = [];
   function report() {
     var lines = ['HopSpeak · отчёт теста голоса', 'Время (UTC): ' + new Date().toISOString(), 'Часовой пояс: ' + (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return '?'; } })(),
       'Страна: ' + ($('country').value || 'не указана'), 'Провайдер/оператор: ' + ($('provider').value || 'не указан'), 'VPN: ' + $('vpn').value,
-      'Режим ретранслятора: ' + (relayOn ? 'да' : 'нет'), 'Страница: voice2 v5, функция ' + FN_NAME, 'Вход: ' + (me ? (me.is_anonymous ? 'гость' : 'по почте') : 'нет'), 'Браузер: ' + navigator.userAgent, 'Сеть по данным браузера: ' + conn(), ''];
+      'Режим ретранслятора: ' + (relayOn ? 'да' : 'нет'), 'Страница: voice2 v6, функция ' + FN_NAME, 'Вход: ' + (me ? (me.is_anonymous ? 'гость' : 'по почте') : 'нет'), 'Браузер: ' + navigator.userAgent, 'Сеть по данным браузера: ' + conn(), ''];
     Object.keys(R).forEach(function (k) { lines.push(R[k][0] + ': ' + R[k][2]); });
     lines.push('Тип соединения: ' + S.pair, 'Задержка: ' + S.rtt, 'Потери пакетов: ' + S.loss, 'Дрожание: ' + S.jitter, 'Оценка качества: ' + S.quality, '', 'Журнал:');
     $('report').value = lines.concat(logLines.slice(-40)).join('\n');
@@ -229,14 +230,19 @@ window.__PCS = [];
     var code = ($('code').value || '').trim().toLowerCase();
     if (!me) throw new Error('сначала войдите (гостем или по почте)');
     if (!/^[a-z0-9]{8,12}$/.test(code)) throw new Error('нет кода комнаты. Откройте ссылку с #кодом или нажмите «Создать комнату»');
-    var t = Date.now(), ses = (await db.auth.getSession()).data.session, fnUrl = SUPABASE_URL + '/functions/v1/' + FN_NAME;
+    var t = Date.now(), ses = (await db.auth.getSession()).data.session, fnUrl = '';
     if (!ses) throw new Error('нет сессии входа, войдите заново');
-    var res;
-    try {
-      res = await fetch(fnUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + ses.access_token, 'apikey': SUPABASE_KEY }, body: JSON.stringify({ kind: 'quick', id: code }) });
-    } catch (e) {
-      throw new Error('запрос к ' + FN_NAME + ' не дошёл (' + (e && e.message || e) + ', ' + (Date.now() - t) + ' мс). Браузер получил отказ ещё до ответа функции: это CORS, блокировка сети или неверное имя/настройка функции');
+    var res = null, tried = [];
+    for (var i = 0; i < FN_NAMES.length; i++) {
+      var nm = FN_NAMES[i], u = SUPABASE_URL + '/functions/v1/' + nm;
+      try {
+        var rr = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + ses.access_token, 'apikey': SUPABASE_KEY }, body: JSON.stringify({ kind: 'quick', id: code }) });
+        if (rr.status === 404 && FN_NAMES.length > i + 1) { var tx = await rr.clone().text(); if (/NOT_FOUND|not found/i.test(tx) && /function/i.test(tx)) { tried.push(nm + ': функции с таким адресом нет'); continue; } }
+        res = rr; FN_NAME = nm; break;
+      } catch (e) { tried.push(nm + ': нет ответа (' + (e && e.message || e) + ')'); }
     }
+    if (!res) throw new Error('запрос к функции не дошёл. Пробовали: ' + tried.join('; ') + ' (' + (Date.now() - t) + ' мс). Браузер получил отказ ещё до ответа функции: это CORS (часто из-за включённого Verify JWT), блокировка сети или неверное имя функции');
+    if (tried.length) L('Использован адрес функции ' + FN_NAME + ' (' + tried.join('; ') + ')');
     var r = { data: null }, txt = await res.text(), j = null; try { j = JSON.parse(txt); } catch (e) {}
     if (!res.ok) throw new Error('функция ' + FN_NAME + ' ответила ' + res.status + ': ' + ((j && (j.error || j.message || j.msg)) || txt.slice(0, 120)) + ' (' + (Date.now() - t) + ' мс)');
     r.data = j;
