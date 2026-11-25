@@ -113,7 +113,7 @@ window.__PCS = [];
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function () {
-  var FN_NAME = 'smart-endpoint'; /* имя функции в Supabase, где лежит код livekit-token.ts */
+  var FN_NAME = 'livekit-token'; /* имя функции в Supabase, где лежит код livekit-token.ts */
   var SUPABASE_URL = 'https://wscupvqkhspeajdcgjus.supabase.co', SUPABASE_KEY = 'sb_publishable_ZDtjYcn8F3O2K_HMTLDnIQ_tWc5yxxC', TURNSTILE_SITEKEY = '0x4AAAAAAGST0bB60KzZXCj-';
   var CFG = { host: 'https://zar-xz0v8cyu.livekit.cloud', sdk: ['https://cdn.jsdelivr.net/npm/livekit-client@2.15.13/dist/livekit-client.umd.min.js', 'https://unpkg.com/livekit-client@2.15.13/dist/livekit-client.umd.min.js'] };
   var $ = function (id) { return document.getElementById(id); };
@@ -135,7 +135,7 @@ window.__PCS = [];
   function report() {
     var lines = ['HopSpeak · отчёт теста голоса', 'Время (UTC): ' + new Date().toISOString(), 'Часовой пояс: ' + (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return '?'; } })(),
       'Страна: ' + ($('country').value || 'не указана'), 'Провайдер/оператор: ' + ($('provider').value || 'не указан'), 'VPN: ' + $('vpn').value,
-      'Режим ретранслятора: ' + (relayOn ? 'да' : 'нет'), 'Страница: voice2 v3, функция ' + FN_NAME, 'Вход: ' + (me ? (me.is_anonymous ? 'гость' : 'по почте') : 'нет'), 'Браузер: ' + navigator.userAgent, 'Сеть по данным браузера: ' + conn(), ''];
+      'Режим ретранслятора: ' + (relayOn ? 'да' : 'нет'), 'Страница: voice2 v5, функция ' + FN_NAME, 'Вход: ' + (me ? (me.is_anonymous ? 'гость' : 'по почте') : 'нет'), 'Браузер: ' + navigator.userAgent, 'Сеть по данным браузера: ' + conn(), ''];
     Object.keys(R).forEach(function (k) { lines.push(R[k][0] + ': ' + R[k][2]); });
     lines.push('Тип соединения: ' + S.pair, 'Задержка: ' + S.rtt, 'Потери пакетов: ' + S.loss, 'Дрожание: ' + S.jitter, 'Оценка качества: ' + S.quality, '', 'Журнал:');
     $('report').value = lines.concat(logLines.slice(-40)).join('\n');
@@ -223,6 +223,8 @@ window.__PCS = [];
     var r = await db.from('quick_rooms').delete().eq('host_id', me.id);
     $('invite').textContent = r.error ? 'Не удалось удалить: ' + r.error.message : 'Ваши комнаты удалены. Можно создать новую.'; L('Удаление комнат: ' + (r.error ? r.error.message : 'ок'));
   }
+  function decodeJwt(t) { try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch (e) { return null; } }
+  function maskKey(k) { return k && k.length > 8 ? k.slice(0, 5) + '…' + k.slice(-2) : (k || '?'); }
   async function getToken() {
     var code = ($('code').value || '').trim().toLowerCase();
     if (!me) throw new Error('сначала войдите (гостем или по почте)');
@@ -239,7 +241,9 @@ window.__PCS = [];
     if (!res.ok) throw new Error('функция ' + FN_NAME + ' ответила ' + res.status + ': ' + ((j && (j.error || j.message || j.msg)) || txt.slice(0, 120)) + ' (' + (Date.now() - t) + ' мс)');
     r.data = j;
     if (!r.data || !r.data.token || !r.data.url) throw new Error('в ответе функции нет пропуска или адреса');
-    return { url: r.data.url, token: r.data.token, via: 'функция Supabase, ' + (Date.now() - t) + ' мс' };
+    var pl = decodeJwt(r.data.token), host = ''; try { host = new URL(r.data.url.replace(/^wss:/, 'https:')).host; } catch (e) {}
+    L('Пропуск: ключ API ' + maskKey(pl && pl.iss) + ', комната ' + (pl && pl.video && pl.video.room) + ', срок ' + (pl ? pl.exp - pl.nbf : '?') + ' с, сервер ' + host);
+    return { url: r.data.url, token: r.data.token, via: 'функция Supabase, ' + (Date.now() - t) + ' мс; ключ ' + maskKey(pl && pl.iss) + ', сервер ' + host };
   }
 
   /* ---------- участники ---------- */
@@ -315,7 +319,7 @@ window.__PCS = [];
       await room.connect(tok.url, tok.token, relayOn ? { rtcConfig: { iceTransportPolicy: 'relay' } } : undefined);
       set('connect', 'ok', 'установлено за ' + (Date.now() - t) + ' мс');
     } catch (e) {
-      set('connect', 'bad', 'не вышло: ' + (e.message || e)); status('Не удалось подключиться. Попробуйте режим ретранслятора или отправьте отчёт.');
+      set('connect', 'bad', 'не вышло: ' + (e.message || e)); status(/invalid token/i.test(String(e && e.message)) ? 'LiveKit не принял пропуск. Скорее всего, LIVEKIT_API_KEY и LIVEKIT_API_SECRET в Secrets Supabase не от того проекта LiveKit, адрес которого в LIVEKIT_URL, или в них лишний пробел. Сверьте ключ из строки «Пропуск от сервера» с ключом в LiveKit Cloud.' : 'Не удалось подключиться. Попробуйте режим ретранслятора или отправьте отчёт.');
       try { room.disconnect(); } catch (x) {} room = null; $('join').disabled = false; drawPeople(); return;
     }
     var tm = Date.now();
