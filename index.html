@@ -391,7 +391,15 @@ input[type="range"] { width: 100%; accent-color: var(--main); }
 </div>
 
 <script>
-var LOGO = '<svg width="44" height="44" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M22 18V36M40 18V36M22 31A9 9 0 0 1 40 31" fill="none" stroke="#000" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="12" r="10" fill="#000"/></mask>\n<g mask="url(#m)"><rect x="6" y="8" width="50" height="38" rx="14" fill="#9b6bff"/><path d="M13 42L11 58L30 44Z" fill="#9b6bff"/></g>\n<circle cx="52" cy="12" r="7" fill="#ff7cc8"/></svg>';
+var LOGO = '<svg width="44" height="44" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M22 18V36M40 18V36M22 31A9 9 0 0 1 40 31" fill="none" stroke="#000" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="12" r="10" fill="#000"/></mask>\n<g mask="url(#m)"><rect x="6" y="8" width="50" height="38" rx="14" style="fill:var(--main)"/><path d="M13 42L11 58L30 44Z" style="fill:var(--main)"/></g>\n<circle cx="52" cy="12" r="7" style="fill:var(--hi)"/></svg>';
+function setFavicon() { /* значок вкладки в цветах выбранной темы */
+  try {
+    var cs = getComputedStyle(document.documentElement), c = function (n) { return cs.getPropertyValue(n).trim(); };
+    var main = c('--main'), hi = c('--hi'), bg = c('--bg');
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" rx="28" fill="' + bg + '"/><g transform="translate(24 24) scale(1.25)"><mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M22 18V36M40 18V36M22 31A9 9 0 0 1 40 31" fill="none" stroke="#000" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="52" cy="12" r="10" fill="#000"/></mask><g mask="url(#m)"><rect x="6" y="8" width="50" height="38" rx="14" fill="' + main + '"/><path d="M13 42L11 58L30 44Z" fill="' + main + '"/></g><circle cx="52" cy="12" r="7" fill="' + hi + '"/></g></svg>';
+    var l = document.querySelector('link[rel="icon"]'); if (l) l.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+  } catch (e) {}
+}
 var logoN = 0;
 function hmark() { /* маленький знак HopSpeak в заголовках; у каждого свой id маски, чтобы экраны не мешали друг другу */
   logoN++; var id = 'hm' + logoN;
@@ -1019,7 +1027,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     $('phone').classList.toggle('calm', !!S.set.calm);
     var th = S.set.theme; if (['zhar', 'ice', 'forest', 'dusk'].indexOf(th) < 0) th = 'zhar';
     if (th === 'zhar') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', th);
-    persist();
+    persist(); setFavicon();
     renderTabbar(); renderMini(); applySpeaking();
     var m = $('msgs'); if (m) m.scrollTop = m.scrollHeight;
     var q = $('qInput'); if (q && !q.dataset.f) { q.dataset.f = 1; q.focus(); var l = q.value.length; q.setSelectionRange(l, l); }
