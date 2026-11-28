@@ -227,6 +227,11 @@ svg { display: block; flex: none; }
 .b { max-width: 80%; padding: 8px 12px; border-radius: 12px; overflow-wrap: anywhere; }
 .b time { display: block; font-size: 10.5px; opacity: .7; margin-top: 2px; text-align: right; font-variant-numeric: tabular-nums; }
 .b.pend { opacity: .6; }
+.profbtn { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left; }
+.avlink { flex: none; align-self: flex-end; }
+.pbtns { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.pbtns .save, .pbtns .ghost { width: 100%; height: 46px; }
+.about-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
 .tk { display: inline-block; margin-left: 4px; vertical-align: -1px; opacity: .55; }
 .tk svg { width: 17px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .tk.rd { opacity: 1; }
@@ -710,7 +715,8 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     h += '<div class="scroll"><div class="chan-hero">' + emblem(c) + '<h2>' + esc(c.name) + '</h2><p class="hd">@' + esc(c.handle) + '</p>' +
       (c.desc ? '<p class="ds">' + esc(c.desc) + '</p>' : '') +
       '<div class="meta"><span class="mchip">' + memTxt(c) + '</span><span class="mchip">' + voiceOf(c).length + ' голос · ' + chatsOf(c).length + ' чат</span></div>' +
-      (c.mine ? '' : '<button class="join-hero" data-act="joinChannel">Вступить в канал</button>') + '</div>';
+      (c.mine ? '' : '<button class="join-hero" data-act="joinChannel">Вступить в канал</button>') +
+      (c.real ? (c.isPublic ? '<button class="tiny-btn" data-act="shareChan" style="margin-top:10px">Поделиться ссылкой</button>' : '<div class="hintbox" style="margin-top:10px">Закрытый канал: по ссылке не зайти. Сделайте его открытым в настройках, чтобы приглашать ссылкой.</div>') : '') + '</div>';
     var v = voiceOf(c), t = chatsOf(c);
     if (v.length) {
       h += '<div class="sect">Голосовые комнаты</div>';
@@ -764,7 +770,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     return r.msgs.map(function (m) {
       if (m.u === 'me') return '<div class="b me' + (m.pending ? ' pend' : '') + '">' + esc(m.t) + '<time>' + esc(m.time) + '</time></div>';
       var p = P[m.u] || { n: 'Неизвестный', c: 'var(--muted)' }; if (!P[m.u]) P[m.u] = p;
-      return '<div class="gm">' + avP(m.u, 'sm') + '<div class="gb"><div class="b them"><span class="gn" style="color:' + p.c + '">' + esc(p.n) + '</span>' + esc(m.t) + '<time>' + esc(m.time) + '</time></div></div></div>';
+      return '<div class="gm"><button class="avlink" data-prof="' + m.u + '" aria-label="Профиль">' + avP(m.u, 'sm') + '</button><div class="gb"><div class="b them"><span class="gn" style="color:' + p.c + '">' + esc(p.n) + '</span>' + esc(m.t) + '<time>' + esc(m.time) + '</time></div></div></div>';
     }).join('');
   }
   function screenChatRoom(rid) {
@@ -869,7 +875,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   }
   function screenThread(id) {
     var p = P[id], t = TH[id];
-    var h = '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button><span style="position:relative">' + avP(id) + '<span class="dot' + (p.on ? '' : ' off') + '"></span></span><div class="t"><b>' + esc(p.n) + '</b><span>' + (p.real ? '@' + esc(p.nick) : (p.on ? 'в сети' : 'не в сети')) + (p.friend ? ' · друг' : '') + '</span></div></div>';
+    var h = '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button><button class="profbtn" data-prof="' + id + '" aria-label="Открыть профиль"><span style="position:relative">' + avP(id) + '<span class="dot' + (p.on ? '' : ' off') + '"></span></span><div class="t"><b>' + esc(p.n) + '</b><span>' + (p.real ? '@' + esc(p.nick) : (p.on ? 'в сети' : 'не в сети')) + (p.friend ? ' · друг' : '') + '</span></div></button></div>';
     h += '<div class="msgs" id="msgs">' + msgsHtml(t) + '</div>';
     h += '<form class="compose" id="compose"><input id="msgInput" type="text" maxlength="2000" autocomplete="off" placeholder="Сообщение" aria-label="Сообщение"><button type="submit" aria-label="Отправить">' + I.send + '</button></form>';
     return h;
@@ -894,7 +900,8 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     h += '<div class="pf-id"><h2>' + esc(m.name || 'Без имени') + '</h2><p>' + (m.nick ? '@' + esc(m.nick) : 'Гость') + '</p><span class="stchip"><span class="sdot ' + st[1] + '"></span>' + st[0] + '</span></div>';
     h += '<div class="stats"><div class="stat"><b>' + FRIENDS.length + '</b><span>друзей</span></div></div>';
     h += '<div class="sect">Описание</div><div class="about">' + (m.bio.trim() ? esc(m.bio) : '<button class="add-bio" data-act="editProfile">Добавьте пару слов о себе</button>') + '</div>';
-    h += '<div class="sect">Друзья</div><div class="friends-h">' + FRIENDS.map(function (id) { return '<button class="fr" data-thread="' + id + '">' + avP(id) + esc(P[id].n) + '</button>'; }).join('') + '</div>';
+    if (m.nick) h += '<div class="about-actions"><button class="tiny-btn" data-act="shareMe">Поделиться ссылкой на профиль</button></div>';
+    h += '<div class="sect">Друзья</div><div class="friends-h">' + FRIENDS.map(function (id) { return '<button class="fr" data-prof="' + id + '">' + avP(id) + esc(P[id].n) + '</button>'; }).join('') + '</div>';
     return h + '</div>';
   }
   function screenEdit() {
@@ -1017,7 +1024,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
       h += '<button class="frow" data-frow="' + id + '" aria-expanded="' + open + '"><span style="position:relative">' + avP(id) + '<span class="dot' + (p.on ? '' : ' off') + '"></span></span><span class="mid"><span class="nm">' + esc(p.n) + '</span><span class="pv" style="display:block">@' + esc(p.nick) + (p.real ? (p.st === 'dnd' ? ' · не беспокоить' : '') : ' · ' + (p.on ? 'в сети' : 'не в сети')) + '</span></span></button>';
       if (open) {
         var ck = S.confirmKey;
-        h += '<div class="facts"><button data-fact="dm:' + id + '">Написать</button>' +
+        h += '<div class="facts"><button data-prof="' + id + '">Профиль</button><button data-fact="dm:' + id + '">Написать</button>' +
           '<button data-fact="report:' + id + '">Пожаловаться</button>' +
           '<button class="dg" data-fact="remove:' + id + '">' + (ck === 'remove:' + id ? 'Точно удалить?' : 'Удалить') + '</button>' +
           '<button class="dg" data-fact="block:' + id + '">' + (ck === 'block:' + id ? 'Точно? Он уйдёт и из друзей' : 'Заблокировать') + '</button></div>';
@@ -1043,13 +1050,15 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   var REAL = { byId: {}, sig: '' };
   function realOn() { return !!(S.acc && !S.acc.guest); }
   function setSocial(d) {
-    Object.keys(P).forEach(function (k) { if (P[k].real) delete P[k]; else P[k].friend = false; });
+    REAL.cache = REAL.cache || {};
+    Object.keys(P).forEach(function (k) { if (P[k].real) { REAL.cache[k] = P[k]; delete P[k]; } else P[k].friend = false; });
     REAL.byId = {};
     (d.people || []).forEach(function (pp) {
       var k = 'r-' + (pp.nick || pp.id.slice(0, 8));
       REAL.byId[pp.id] = k;
-      P[k] = { n: pp.name, c: COLORS[(pp.g || 0) % 5][0], nick: pp.nick || '', id: pp.id, real: true, on: false, st: pp.status, friend: false };
+      P[k] = { n: pp.name, c: COLORS[(pp.g || 0) % 5][0], nick: pp.nick || '', id: pp.id, real: true, on: false, st: pp.status, friend: false, bio: pp.bio || '', b: pp.b || 0 };
     });
+    Object.keys(REAL.cache).forEach(function (k) { if (!P[k]) { P[k] = REAL.cache[k]; P[k].friend = false; REAL.byId[P[k].id] = k; } });   // чтобы открытый профиль не пропадал после удаления из друзей
     var key = function (id) { return REAL.byId[id]; }, ok = function (k) { return !!k; };
     FRIENDS.length = 0;
     (d.friends || []).map(key).filter(ok).forEach(function (k) { FRIENDS.push(k); P[k].friend = true; });
@@ -1282,6 +1291,74 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   }
   function loadQuick() { HSData.listQuick().then(function (r) { if (r.ok) S.qList = r.data; else { S.qList = S.qList || []; S.qErr = r.msg; } if (S.sub && S.sub.type === 'quick') render(); }); }
 
+  /* ---------- профиль другого человека и ссылки ---------- */
+  function openPerson(id) { if (!P[id]) return; S.prevSub = S.sub; S.sub = { type: 'person', id: id }; S.confirmKey = null; S.reportFor = null; render(); }
+  function relOf(id) {
+    if (S.blocked.indexOf(id) > -1) return 'blocked';
+    if (FRIENDS.indexOf(id) > -1) return 'friend';
+    if (S.req.in.indexOf(id) > -1) return 'in';
+    if (S.req.out.indexOf(id) > -1) return 'out';
+    return 'none';
+  }
+  function screenPerson(id) {
+    var p = P[id];
+    if (!p) return '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button></div><div class="empty">Профиль недоступен.</div>';
+    var rel = relOf(id), ck = S.confirmKey, st = p.st && p.st !== 'inv' ? STATUS[p.st] : null;
+    var h = '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button><div class="t"><b>' + esc(p.n) + '</b><span>' + (p.nick ? '@' + esc(p.nick) : 'профиль') + '</span></div></div><div class="scroll">';
+    h += '<div class="banner" style="' + bannerStyle({ b: p.b || 0 }) + '"></div><div class="pf-av">' + avP(id) + '</div>';
+    h += '<div class="pf-id"><h2>' + esc(p.n) + '</h2><p>' + (p.nick ? '@' + esc(p.nick) : '') + '</p>' + (st ? '<span class="stchip"><span class="sdot ' + st[1] + '"></span>' + st[0] + '</span>' : '') + '</div>';
+    h += '<div class="sect">Описание</div><div class="about">' + (p.bio && p.bio.trim() ? esc(p.bio) : 'Пока ничего не написано.') + '</div>';
+    h += '<div class="pbtns">';
+    if (rel !== 'blocked') h += '<button class="save" data-fact="dm:' + id + '">Написать</button>';
+    if (rel === 'none') h += '<button class="ghost" data-act="pAdd" data-pid="' + id + '">Добавить в друзья</button>';
+    else if (rel === 'in') h += '<button class="ghost" data-req="acc:' + id + '">Принять заявку в друзья</button><button class="ghost" data-req="dec:' + id + '">Отклонить заявку</button>';
+    else if (rel === 'out') h += '<button class="ghost" data-req="can:' + id + '">Заявка отправлена. Отменить</button>';
+    else if (rel === 'friend') h += '<button class="ghost" data-fact="remove:' + id + '">' + (ck === 'remove:' + id ? 'Точно удалить из друзей?' : 'Удалить из друзей') + '</button>';
+    else if (rel === 'blocked') h += '<button class="ghost" data-unblock="' + id + '">Разблокировать</button>';
+    if (rel !== 'blocked') h += '<button class="ghost" data-fact="block:' + id + '">' + (ck === 'block:' + id ? 'Точно? Он уйдёт и из друзей' : 'Заблокировать') + '</button>';
+    h += '<button class="ghost" data-fact="report:' + id + '">Пожаловаться</button>';
+    h += '</div>';
+    if (S.reportFor === id) h += '<div class="facts"><span class="cap" style="width:100%;margin:0">Причина жалобы</span>' + REASONS.map(function (r) { return '<button data-fact="rep:' + r[0] + ':' + id + '">' + r[1] + '</button>'; }).join('') + '</div>';
+    return h + '</div>';
+  }
+  function baseUrl() { return location.origin + location.pathname; }
+  function copyOrShare(url, title) {
+    var done = function () { toast('Ссылка скопирована. Отправьте её в Telegram или куда угодно'); }, fail = function () { toast('Не удалось скопировать. Ссылка: ' + url); };
+    var copy = function () { try { navigator.clipboard.writeText(url).then(done, fail); } catch (e) { fail(); } };
+    if (navigator.share) { navigator.share({ title: title, url: url }).catch(function (e) { if (!e || e.name !== 'AbortError') copy(); }); } else copy();
+  }
+  function readLink() {
+    var m = /^#(c|u)=([a-z0-9_]{3,24})$/i.exec(location.hash || '');
+    try {
+      if (m) { sessionStorage.setItem('hs.link', m[1].toLowerCase() + '=' + m[2].toLowerCase()); history.replaceState(null, '', location.pathname + location.search); }
+      var v = sessionStorage.getItem('hs.link'); if (v) { S.pendC = v.charAt(0) === 'c' ? v.slice(2) : null; S.pendU = v.charAt(0) === 'u' ? v.slice(2) : null; }
+    } catch (e) {}
+  }
+  function clearLink() { S.pendC = S.pendU = null; try { sessionStorage.removeItem('hs.link'); } catch (e) {} }
+  function processLink() {
+    if (!S.acc) return;
+    if (S.pendC) {
+      var h = S.pendC;
+      if (S.acc.guest) { toast('Чтобы открыть канал по ссылке, войдите по почте'); clearLink(); return; }
+      var c = CH.filter(function (x) { return x.handle === h; })[0];
+      clearLink();
+      if (c) { S.tab = 'channels'; S.sub = { type: 'channel', id: c.id }; render(); if (!c.mine) toast('Нажмите «Вступить в канал»'); }
+      else toast('Канал не найден или он закрыт');
+    } else if (S.pendU) {
+      var nick = S.pendU, k = 'r-' + nick;
+      if (S.acc.guest) { toast('Чтобы открыть профиль по ссылке, войдите по почте'); clearLink(); return; }
+      clearLink();
+      if (nick === S.me.nick) { S.tab = 'profile'; S.sub = null; render(); return; }
+      if (P[k]) { S.tab = 'friends'; S.prevSub = null; S.sub = { type: 'person', id: k }; render(); return; }
+      HSData.profileByNick(nick).then(function (r) {
+        if (!r.ok || !r.data) { toast('Пользователь не найден'); return; }
+        var x = r.data; REAL.byId[x.id] = k;
+        P[k] = { n: x.name, c: COLORS[(x.avatar_color || 0) % 5][0], nick: x.nick, id: x.id, real: true, on: false, st: x.status, friend: false, bio: x.bio || '', b: x.banner_color || 0 };
+        REAL.cache[k] = P[k]; S.tab = 'friends'; S.prevSub = null; S.sub = { type: 'person', id: k }; render();
+      });
+    }
+  }
+
   function screenGroup(id) {
     var g = groupById(id), n = g.members.length + 1;
     var h = '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button>' + groupAv(g) + '<div class="t"><b>' + esc(g.name) + '</b><span>' + n + ' ' + peopleWord(n) + ' · демо-группа</span></div></div>';
@@ -1316,6 +1393,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     else if (t === 'chatroom') h = screenChatRoom(sub.id);
     else if (t === 'editChannel') h = screenEditChannel();
     else if (t === 'quick') h = screenQuick();
+    else if (t === 'person') h = screenPerson(sub.id);
     else if (t === 'thread') h = screenThread(sub.id);
     else if (t === 'notifs') h = screenNotifs();
     else if (t === 'group') h = screenGroup(sub.id);
@@ -1414,6 +1492,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     var s = S.sub;
     S.draft = null;
     if (s && (s.type === 'room' || s.type === 'chatroom')) S.sub = { type: 'channel', id: findRoom(s.id).c.id };
+    else if (s && s.type === 'person') { S.sub = S.prevSub || null; S.prevSub = null; S.confirmKey = null; S.reportFor = null; }
     else if (s && s.type === 'editChannel') { S.sub = s.isNew ? null : { type: 'channel', id: s.id }; S.cd = null; S.err = ''; }
     else S.sub = null;
   }
@@ -1490,6 +1569,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
       S.sub = { type: d.chat ? 'chatroom' : 'room', id: f.r.id }; render();
       if (d.chat && f.r.chatId && window.HSData) HSData.refresh();
     }
+    else if (d.prof) { openPerson(d.prof); }
     else if (d.thread) { if (P[d.thread] && P[d.thread].real) openRealThread(d.thread); else { openThread(d.thread); render(); } }
     else if (d.notif) {
       var nt = S.notifs.filter(function (x) { return x.id === d.notif; })[0];
@@ -1529,6 +1609,12 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     else if (a === 'saveChannel') { if (S.saving) return; var sr = saveChannel(); if (sr !== 'async') render(); }
     else if (a === 'joinChannel') { var jc2 = chById(S.sub.id); if (jc2.real) joinReal(jc2); else { jc2.mine = true; jc2.members++; render(); toast('Вы вступили в «' + jc2.name + '»'); } }
     else if (a === 'chAvDel') { setChanAvatar(null); }
+    else if (a === 'shareChan') { var sc = chById(S.sub.id); if (sc) copyOrShare(baseUrl() + '#c=' + sc.handle, 'Канал «' + sc.name + '» в HopSpeak'); }
+    else if (a === 'shareMe') { if (S.me.nick) copyOrShare(baseUrl() + '#u=' + S.me.nick, S.me.name + ' в HopSpeak'); }
+    else if (a === 'pAdd') {
+      var pp0 = P[d.pid]; if (!pp0 || !realOn()) return;
+      HSData.sendRequest(pp0.nick).then(function (r) { toast(r.ok ? (r.code === 'accepted' ? 'Вы теперь друзья' : 'Заявка отправлена') : r.msg); return afterAct(); });
+    }
     else if (a === 'openQuick') { S.sub = { type: 'quick' }; S.qErr = ''; S.qList = null; render(); loadQuick(); }
     else if (a === 'qCreate') {
       if (S.qBusy) return; S.qBusy = true; S.qErr = ''; render();
@@ -1654,6 +1740,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
       else { setSocial({ people: [], me: { name: '', nick: '', bio: '', status: 'on', g: 0, b: 0 } }); }
       render();
     },
+    pendingHandle: function () { return S.pendC || null; },
     watching: function () { var s2 = S.sub; if (s2 && s2.type === 'chatroom') { var f2 = findRoom(s2.id); return (f2 && f2.r.chatId) || null; } return null; },
     setSocial: function (d, auto) {
       var sig = JSON.stringify(d); if (sig === REAL.sig) return;
@@ -1663,9 +1750,11 @@ function hmark() { /* маленький знак HopSpeak в заголовка
       var cur = inT ? S.sub.id : null;
       REAL.sig = sig; setSocial(d);
       if (cur && TH[cur]) threadRefresh(); else if (rid && findRoom(rid)) roomRefresh(); else render();
+      if ((S.pendC && d.channels) || S.pendU) processLink();
     }
   };
   restore();
+  readLink();
   render();
 })();
 </script>
@@ -1830,14 +1919,14 @@ function hmark() { /* маленький знак HopSpeak в заголовка
         (bl.data || []).forEach(function (b) { ids[b.blocked] = 1; out.blocked.push(b.blocked); });
         var list = Object.keys(ids);
         if (list.length) {
-          var pp = await db.from('profiles').select('id,nick,name,status,avatar_color').in('id', list);
+          var pp = await db.from('profiles').select('id,nick,name,status,avatar_color,bio,banner_color').in('id', list);
           if (pp.error) return;
-          out.people = (pp.data || []).map(function (x) { return { id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color }; });
+          out.people = (pp.data || []).map(function (x) { return { id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color, bio: x.bio || '', b: x.banner_color || 0 }; });
         }
       }
       if (!m.is_guest) {
         try { out.dms = await loadDms(u.id, out.people); } catch (e) { out.dms = []; }
-        try { var chn = await loadChannels(u.id, out.people); if (chn) out.channels = chn; } catch (e) {}
+        try { var chn = await loadChannels(u.id, out.people, (window.HSApp && HSApp.pendingHandle) ? HSApp.pendingHandle() : null); if (chn) out.channels = chn; } catch (e) {}
         try { var w = (window.HSApp && HSApp.watching) ? HSApp.watching() : null; if (w) { var rmx = await loadRoom(w, u.id, out.people); if (rmx) out.room = rmx; } } catch (e) {}
       }
       if (window.HSApp) HSApp.setSocial(out, auto);
@@ -1858,8 +1947,8 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     var have = {}; people.forEach(function (x) { have[x.id] = 1; });
     var need = Object.keys(peer).map(function (k) { return peer[k]; }).filter(function (id) { return !have[id]; });
     if (need.length) {
-      var pp = await db.from('profiles').select('id,nick,name,status,avatar_color').in('id', need);
-      (pp.data || []).forEach(function (x) { people.push({ id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color }); });
+      var pp = await db.from('profiles').select('id,nick,name,status,avatar_color,bio,banner_color').in('id', need);
+      (pp.data || []).forEach(function (x) { people.push({ id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color, bio: x.bio || '', b: x.banner_color || 0 }); });
     }
     return ids.filter(function (id) { return peer[id]; }).map(function (id) {
       var list = (by[id] || []).slice().reverse(), lr = read[id] || 0, last = list.length ? list[list.length - 1].id : 0;
@@ -1867,11 +1956,16 @@ function hmark() { /* маленький знак HopSpeak в заголовка
         msgs: list.map(function (m) { return { id: m.id, mine: m.author_id === me, body: m.body, at: m.created_at }; }) };
     });
   }
-  async function loadChannels(me, people) {
+  async function loadChannels(me, people, extra) {
     var ch = await db.from('channels').select('id,owner_id,name,handle,description,color,is_public,created_at,avatar_path').order('created_at', { ascending: false }).limit(100);
     if (ch.error) ch = await db.from('channels').select('id,owner_id,name,handle,description,color,is_public,created_at').order('created_at', { ascending: false }).limit(100);   // колонки аватарки ещё нет
     var cm = await db.from('channel_members').select('channel_id,user_id,role');
     if (ch.error || cm.error) return null;
+    if (extra && !(ch.data || []).some(function (c) { return c.handle === extra; })) {
+      var ex = await db.from('channels').select('id,owner_id,name,handle,description,color,is_public,created_at,avatar_path').eq('handle', extra).maybeSingle();
+      if (ex.error) ex = await db.from('channels').select('id,owner_id,name,handle,description,color,is_public,created_at').eq('handle', extra).maybeSingle();
+      if (ex.data) ch.data = (ch.data || []).concat([ex.data]);
+    }
     var ids = (ch.data || []).map(function (c) { return c.id; }), rooms = [], perms = [];
     if (ids.length) {
       var rm = await db.from('rooms').select('id,channel_id,kind,name,position,restricted,chat_id').in('channel_id', ids).order('position', { ascending: true });
@@ -1886,8 +1980,8 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     perms.forEach(function (x) { if (x.user_id !== me && !have[x.user_id]) need[x.user_id] = 1; });
     var nl = Object.keys(need).slice(0, 200);
     if (nl.length) {
-      var pp = await db.from('profiles').select('id,nick,name,status,avatar_color').in('id', nl);
-      (pp.data || []).forEach(function (x) { people.push({ id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color }); });
+      var pp = await db.from('profiles').select('id,nick,name,status,avatar_color,bio,banner_color').in('id', nl);
+      (pp.data || []).forEach(function (x) { people.push({ id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color, bio: x.bio || '', b: x.banner_color || 0 }); });
     }
     return (ch.data || []).map(function (c) {
       return { id: c.id, name: c.name, handle: c.handle, desc: c.description, color: c.color, isPublic: c.is_public, avatarPath: c.avatar_path || null, avatarUrl: c.avatar_path ? SUPABASE_URL + '/storage/v1/object/public/avatars/' + c.avatar_path : null, mine: !!role[c.id], role: role[c.id] || null,
@@ -1905,8 +1999,8 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     list.forEach(function (m) { if (m.author_id !== me && !have[m.author_id]) need[m.author_id] = 1; });
     var nl = Object.keys(need);
     if (nl.length) {
-      var pp = await db.from('profiles').select('id,nick,name,status,avatar_color').in('id', nl);
-      (pp.data || []).forEach(function (x) { people.push({ id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color }); });
+      var pp = await db.from('profiles').select('id,nick,name,status,avatar_color,bio,banner_color').in('id', nl);
+      (pp.data || []).forEach(function (x) { people.push({ id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color, bio: x.bio || '', b: x.banner_color || 0 }); });
     }
     return { chatId: chatId, msgs: list.map(function (m) { return { id: m.id, author: m.author_id, body: m.body, at: m.created_at }; }) };
   }
@@ -2016,6 +2110,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
         return { ok: true };
       } catch (e) { return chErr(e); }
     },
+    profileByNick: function (nick) { return wrap(function () { return db.from('profiles').select('id,nick,name,status,avatar_color,bio,banner_color,is_guest').eq('nick', nick).maybeSingle(); }).then(function (r) { if (r.ok && r.data && r.data.is_guest) r.data = null; return r; }); },
     listQuick: function () {
       return wrap(function () { return db.from('quick_rooms').select('id,code,title,max_people,expires_at,created_at').order('created_at', { ascending: false }); }).then(function (r) {
         if (r.ok) r.data = (r.data || []).filter(function (q) { return new Date(q.expires_at) > new Date(); });
