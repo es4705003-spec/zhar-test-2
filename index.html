@@ -227,6 +227,8 @@ svg { display: block; flex: none; }
 .b { max-width: 80%; padding: 8px 12px; border-radius: 12px; overflow-wrap: anywhere; }
 .b time { display: block; font-size: 10.5px; opacity: .7; margin-top: 2px; text-align: right; font-variant-numeric: tabular-nums; }
 .b.pend { opacity: .6; }
+.leave-link { display: block; margin: 18px auto 8px; color: var(--muted); text-decoration: underline; font-size: 14px; }
+.leave-link.ask { color: var(--danger-t); }
 .b.them { align-self: flex-start; background: var(--card2); border-bottom-left-radius: 4px; }
 .b.me { align-self: flex-end; background: var(--main); color: var(--on-main); border-bottom-right-radius: 4px; }
 .gm { display: flex; gap: 8px; align-items: flex-end; max-width: 88%; align-self: flex-start; margin-top: 4px; }
@@ -588,7 +590,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     filter: 'all',
     joined: null, muted: false, deaf: false,
     speaking: {},
-    logoutAsk: false, delAsk: false, delText: '', delBusy: false, delErr: '', acc: null, reportFor: null, saving: false,
+    logoutAsk: false, delAsk: false, delText: '', delBusy: false, delErr: '', acc: null, reportFor: null, saving: false, leaveAsk: null,
     draft: null,
     cd: null, err: '',
     req: { in: ['tima'], out: ['olya'] }, blocked: [], fq: '', open: null, confirmKey: null, addMsg: null, addVal: '',
@@ -611,7 +613,8 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   var callTotal = function (c) { return voiceOf(c).reduce(function (n, r) { return n + r.call.length; }, 0); };
   var callUsers = function (c) { var a = []; voiceOf(c).forEach(function (r) { r.call.forEach(function (u) { a.push(u); }); }); return a; };
   var chanUnread = function (c) { return chatsOf(c).reduce(function (n, r) { return n + r.unread; }, 0); };
-  var canEnter = function (c, r) { return !r.locked || c.owner || r.allowed.indexOf('me') > -1; };
+  var canEnter = function (c, r) { return !r.locked || c.owner || c.isAdmin || r.allowed.indexOf('me') > -1; };
+  var memTxt = function (c) { return c.members == null ? 'открытый канал' : c.members + ' ' + peopleWord(c.members); };
   var avP = function (id, cls) { var p = P[id]; return '<span class="av ' + (cls || '') + '" style="--c:' + p.c + '">' + esc(p.n.charAt(0)) + '</span>'; };
   var avMe = function (cls, o) {
     o = o || S.me;
@@ -646,7 +649,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   function channelCard(c, opts) {
     opts = opts || {};
     var total = callTotal(c), live = total > 0, un = chanUnread(c), sub, right = '';
-    sub = (live ? eqHtml(voiceOf(c)) + '<span class="tx">' + total + ' в голосе · @' + esc(c.handle) + '</span>' : '<span class="tx">' + c.members + ' ' + peopleWord(c.members) + ' · @' + esc(c.handle) + '</span>');
+    sub = (live ? eqHtml(voiceOf(c)) + '<span class="tx">' + total + ' в голосе · @' + esc(c.handle) + '</span>' : '<span class="tx">' + memTxt(c) + ' · @' + esc(c.handle) + '</span>');
     if (opts.join) right = c.mine ? '<span class="joined-sm">Вы в канале</span>' : '<span class="join-sm" data-join="' + c.id + '" role="button" tabindex="0">Вступить</span>';
     else if (un) right = '<span class="badge">' + un + '</span>';
     return '<button class="card' + (live ? ' live' : '') + '" data-chan="' + c.id + '">' + emblem(c) +
@@ -659,6 +662,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     var h = '';
     if (live.length) { h += '<div class="sect">Сейчас говорят</div>'; live.forEach(function (c) { h += channelCard(c); }); }
     if (quiet.length) { h += '<div class="sect">Ваши каналы</div>'; quiet.forEach(function (c) { h += channelCard(c); }); }
+    if (!mine.length) h += '<div class="empty">У вас пока нет каналов. Создайте свой кнопкой «+» или найдите открытый через поиск.</div>';
     return h;
   }
   function searchResults() {
@@ -685,10 +689,10 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   function screenChannel(id) {
     var c = chById(id), h = '';
     h += '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button><div class="t"><b>' + esc(c.name) + '</b><span>@' + esc(c.handle) + '</span></div>' +
-      (c.owner ? '<button class="gear" data-act="editChannel" aria-label="Редактировать канал">' + I.pencil + '</button>' : '') + '</div>';
+      ((c.owner || c.isAdmin) ? '<button class="gear" data-act="editChannel" aria-label="Редактировать канал">' + I.pencil + '</button>' : '') + '</div>';
     h += '<div class="scroll"><div class="chan-hero">' + emblem(c) + '<h2>' + esc(c.name) + '</h2><p class="hd">@' + esc(c.handle) + '</p>' +
       (c.desc ? '<p class="ds">' + esc(c.desc) + '</p>' : '') +
-      '<div class="meta"><span class="mchip">' + c.members + ' ' + peopleWord(c.members) + '</span><span class="mchip">' + voiceOf(c).length + ' голос · ' + chatsOf(c).length + ' чат</span></div>' +
+      '<div class="meta"><span class="mchip">' + memTxt(c) + '</span><span class="mchip">' + voiceOf(c).length + ' голос · ' + chatsOf(c).length + ' чат</span></div>' +
       (c.mine ? '' : '<button class="join-hero" data-act="joinChannel">Вступить в канал</button>') + '</div>';
     var v = voiceOf(c), t = chatsOf(c);
     if (v.length) {
@@ -706,6 +710,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
         h += '<button class="rrow' + (r.unread ? ' unread' : '') + '" data-chat="' + r.id + '"><span class="ri">' + I.bubbleS + '</span><span class="rm"><span class="rn">' + esc(r.name) + (r.locked ? I.lock : '') + '</span><span class="rs"><span class="tx">' + esc(pv) + '</span></span></span>' + (r.unread ? '<span class="badge">' + r.unread + '</span>' : '') + '</button>';
       });
     }
+    if (c.real && c.mine && !c.owner) h += '<button class="leave-link' + (S.leaveAsk === c.id ? ' ask' : '') + '" data-act="leaveChannel">' + (S.leaveAsk === c.id ? 'Точно выйти из канала? Нажмите ещё раз' : 'Выйти из канала') + '</button>';
     h += '</div>';
     return h;
   }
@@ -714,6 +719,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   function screenRoom(rid) {
     var f = findRoom(rid), c = f.c, r = f.r, inHere = S.joined === rid, ok = canEnter(c, r);
     var h = '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button><div class="t"><b>' + esc(r.name) + '</b><span>' + esc(c.name) + (r.locked ? ' · по приглашению' : '') + '</span></div></div>';
+    if (c.real) return h + '<div class="scroll"><div class="room-hero">' + emblem(c) + '<h2>' + esc(r.name) + '</h2><p>' + esc(c.name) + '</p></div><div class="hintbox" style="text-align:center">Голос внутри канала подключим следующим шагом. Сейчас голосовая связь работает на странице «Быстрый голос».</div></div>';
     h += '<div class="scroll">' + DEMO_VOICE + '<div class="room-hero">' + emblem(c) + '<h2>' + esc(r.name) + '</h2><p>' + (ok ? (r.call.length ? r.call.length + ' в голосе сейчас' : 'В голосе пока никого') : esc(c.name)) + '</p></div>';
     if (!ok) {
       h += '<div class="lock-note">' + I.lockL + '<b>Вход только по приглашению</b>Владелец канала может пригласить вас в эту комнату.</div>';
@@ -740,8 +746,8 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   function groupMsgsHtml(r) {
     if (!r.msgs.length) return '<div class="empty">Здесь пока тихо. Напишите первое сообщение.</div>';
     return r.msgs.map(function (m) {
-      if (m.u === 'me') return '<div class="b me">' + esc(m.t) + '<time>' + esc(m.time) + '</time></div>';
-      var p = P[m.u];
+      if (m.u === 'me') return '<div class="b me' + (m.pending ? ' pend' : '') + '">' + esc(m.t) + '<time>' + esc(m.time) + '</time></div>';
+      var p = P[m.u] || { n: 'Неизвестный', c: 'var(--muted)' }; if (!P[m.u]) P[m.u] = p;
       return '<div class="gm">' + avP(m.u, 'sm') + '<div class="gb"><span class="gn" style="color:' + p.c + '">' + esc(p.n) + '</span><div class="b them">' + esc(m.t) + '<time>' + esc(m.time) + '</time></div></div></div>';
     }).join('');
   }
@@ -749,7 +755,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     var f = findRoom(rid), c = f.c, r = f.r;
     var h = '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button><div class="t"><b>' + esc(r.name) + '</b><span>' + esc(c.name) + (r.locked ? ' · писать по разрешению' : '') + '</span></div></div>';
     h += '<div class="msgs" id="msgs">' + groupMsgsHtml(r) + '</div>';
-    if (canEnter(c, r)) h += '<form class="compose" id="cchat"><input id="msgInput" type="text" autocomplete="off" placeholder="Сообщение в «' + esc(r.name) + '»" aria-label="Сообщение"><button type="submit" aria-label="Отправить">' + I.send + '</button></form>';
+    if (canEnter(c, r)) h += '<form class="compose" id="cchat"><input id="msgInput" type="text" maxlength="2000" autocomplete="off" placeholder="Сообщение в «' + esc(r.name) + '»" aria-label="Сообщение"><button type="submit" aria-label="Отправить">' + I.send + '</button></form>';
     else h += '<div class="lockbar">' + I.lock.replace('width="14" height="14"', 'width="22" height="22"') + '<span>Писать здесь можно только по разрешению владельца.</span><button class="tiny-btn" data-act="reqWrite">Попросить</button></div>';
     return h;
   }
@@ -760,7 +766,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     var h = '<div class="redit"><div class="rh"><span class="ri">' + (voice ? I.speaker : I.bubbleS) + '</span><input type="text" maxlength="24" data-rname="' + i + '" value="' + esc(dr.name) + '" aria-label="Название комнаты"><button class="del" data-rdel="' + i + '" aria-label="Удалить комнату">' + I.trash + '</button></div>';
     h += '<button class="setrow" role="switch" aria-checked="' + dr.locked + '" data-rlock="' + i + '"><span>' + (voice ? 'Вход только по приглашению' : 'Писать только по разрешению') + '<small>' + (voice ? 'Остальные увидят замок и смогут попросить доступ' : 'Остальные смогут читать, но не писать') + '</small></span><span class="sw-t"></span></button>';
     if (dr.locked) {
-      h += '<div><p class="cap">' + (voice ? 'Приглашены' : 'Могут писать') + '</p><div class="chipset">' + FRIENDS.map(function (u) {
+      h += '<div><p class="cap">' + (voice ? 'Приглашены' : 'Могут писать') + '</p><div class="chipset">' + ((S.cd && S.cd.real) ? S.cd.memberKeys : FRIENDS).map(function (u) {
         return '<button class="chip sm" data-rallow="' + i + ':' + u + '" aria-pressed="' + (dr.allowed.indexOf(u) > -1) + '">' + esc(P[u].n) + '</button>';
       }).join('') + '</div></div>';
     }
@@ -774,10 +780,15 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     h += '<div class="sect">Название</div><label class="field"><input id="edChName" type="text" maxlength="28" placeholder="Например, Кухня" value="' + esc(d.name) + '" aria-label="Название канала"></label>';
     h += '<div class="sect">@название</div><label class="prefix">@<input id="edChHandle" type="text" maxlength="24" autocapitalize="none" autocomplete="off" placeholder="kitchen" value="' + esc(d.handle) + '" aria-label="Ник канала"></label>';
     h += '<div class="sect">Описание</div><textarea id="edChDesc" rows="3" maxlength="140" placeholder="О чём этот канал" aria-label="Описание канала">' + esc(d.desc) + '</textarea><span class="counter" id="edChCnt">' + d.desc.length + ' / 140</span>';
-    h += '<div class="sect">Комнаты</div>' + d.rooms.map(roomEditor).join('');
-    h += '<div class="add-row"><button class="add-btn" data-act="addVoice">' + I.plusS + 'Голосовая комната</button><button class="add-btn" data-act="addChat">' + I.plusS + 'Чат</button></div>';
+    h += '<button class="setrow" role="switch" aria-checked="' + (d.isPublic !== false) + '" data-act="cpub"><span>Открытый канал<small>Виден в поиске, вступить может любой. Закрытый: только по приглашению.</small></span><span class="sw-t"></span></button>';
+    if (d.isNew && realOn()) h += '<div class="hintbox">Голосовая комната и чат создадутся сами. Добавить свои комнаты и пригласить людей можно после создания, через значок карандаша.</div>';
+    else {
+      h += '<div class="sect">Комнаты</div>' + d.rooms.map(roomEditor).join('');
+      h += '<div class="add-row"><button class="add-btn" data-act="addVoice">' + I.plusS + 'Голосовая комната</button><button class="add-btn" data-act="addChat">' + I.plusS + 'Чат</button></div>';
+    }
+    if (!d.isNew && d.real && d.owner) h += '<button class="danger" data-act="cdel" style="margin-top:18px">' + (d.delAsk ? 'Удалить канал навсегда? Нажмите ещё раз' : 'Удалить канал') + '</button>';
     h += '</div>' + (S.err ? '<div class="err">' + esc(S.err) + '</div>' : '') +
-      '<div class="save-row"><button class="ghost" data-act="back">Отмена</button><button class="save" data-act="saveChannel">' + (isNew ? 'Создать канал' : 'Сохранить') + '</button></div>';
+      '<div class="save-row"><button class="ghost" data-act="back">Отмена</button><button class="save" data-act="saveChannel"' + (S.saving ? ' disabled' : '') + '>' + (S.saving ? 'Сохраняем…' : isNew ? 'Создать канал' : 'Сохранить') + '</button></div>';
     return h;
   }
   function draftRoom(kind, name, orig) {
@@ -1027,6 +1038,8 @@ function hmark() { /* маленький знак HopSpeak в заголовка
       if (d.me.privacy) Object.assign(S.set, d.me.privacy);
     }
     applyDms(d.dms);
+    if (d.channels) applyChannels(d.channels);
+    if (d.room) applyRoom(d.room);
   }
   function afterAct() { return HSData.refresh().then(function () { render(); }); }
   var ADDTXT = { sent: 'Заявка отправлена @', accepted: 'Вы теперь друзья с @', pending: 'Заявка уже отправлена @', already: '@' };
@@ -1129,6 +1142,96 @@ function hmark() { /* маленький знак HopSpeak в заголовка
         toast(r.msg); return;
       }
       return HSData.refresh();
+    });
+  }
+
+  /* ---------- настоящие каналы (Supabase) ---------- */
+  function keyOf(uid) { return S.acc && uid === S.acc.id ? 'me' : REAL.byId[uid]; }
+  function applyChannels(list) {
+    var old = {}; CH.forEach(function (c) { old[c.id] = c; });
+    CH.length = 0;
+    list.forEach(function (c) {
+      var o = old[c.id], mk = [];
+      (c.memberIds || []).forEach(function (u) { var k = keyOf(u); if (k && k !== 'me') mk.push(k); });
+      var rooms = c.rooms.map(function (r) {
+        var or = o && o.rooms.filter(function (x) { return x.id === r.id; })[0];
+        return { id: r.id, kind: r.kind === 'voice' ? 'voice' : 'chat', name: r.name, locked: !!r.restricted, allowed: (r.allowed || []).map(keyOf).filter(Boolean), call: or ? or.call : [], msgs: or ? or.msgs : [], unread: 0, chatId: r.chatId || null };
+      });
+      CH.push({ id: c.id, name: c.name, handle: c.handle, desc: c.desc || '', g: (c.color || 0) % 5, mine: !!c.mine, owner: c.role === 'owner', isAdmin: c.role === 'owner' || c.role === 'admin', members: c.mine ? c.members : null, isPublic: c.isPublic, memberKeys: mk, rooms: rooms, real: true });
+    });
+    if (S.sub && S.sub.id && (S.sub.type === 'channel') && !chById(S.sub.id)) S.sub = null;
+  }
+  function applyRoom(rm) {
+    var f = null;
+    CH.forEach(function (c) { c.rooms.forEach(function (r) { if (r.chatId === rm.chatId) f = r; }); });
+    if (!f) return;
+    f.msgs = rm.msgs.map(function (m) {
+      var k = keyOf(m.author);
+      if (!k) { k = 'r-x' + String(m.author).slice(0, 8); if (!P[k]) P[k] = { n: 'Неизвестный', c: 'var(--muted)', nick: '', real: true, on: false }; }
+      return { id: m.id, u: k, t: m.body, time: fmtTime(m.at) };
+    });
+  }
+  function roomRefresh() {
+    var f = findRoom(S.sub.id), box = $('msgs');
+    if (!f) { S.sub = null; render(); return; }
+    if (box) { var low = box.scrollHeight - box.scrollTop - box.clientHeight < 80; box.innerHTML = groupMsgsHtml(f.r); if (low) box.scrollTop = box.scrollHeight; }
+  }
+  function sendRoom(r, v) {
+    var box = $('msgs');
+    r.msgs.push({ u: 'me', t: v, time: fmtTime(new Date()), pending: true });
+    if (box) { box.innerHTML = groupMsgsHtml(r); box.scrollTop = box.scrollHeight; }
+    HSData.sendMessage(r.chatId, v).then(function (res) {
+      if (!res.ok) {
+        r.msgs = r.msgs.filter(function (m) { return !m.pending; });
+        var b2 = $('msgs'); if (b2) b2.innerHTML = groupMsgsHtml(r);
+        var i2 = $('msgInput'); if (i2 && !i2.value) i2.value = v;
+        toast(res.msg); return;
+      }
+      return HSData.refresh();
+    });
+  }
+  function joinReal(c) {
+    HSData.joinChannel(c.id).then(function (r) { toast(r.ok ? 'Вы вступили в «' + c.name + '»' : r.msg); return afterAct(); });
+  }
+  function leaveReal(c) {
+    HSData.leaveChannel(c.id).then(function (r) {
+      S.leaveAsk = null;
+      if (r.ok) { S.sub = null; toast('Вы вышли из «' + c.name + '»'); }
+      else toast(r.msg);
+      return afterAct();
+    });
+  }
+  function deleteReal(d) {
+    S.saving = true; render();
+    HSData.deleteChannel(d.id).then(function (r) {
+      S.saving = false;
+      if (r.ok) { S.cd = null; S.sub = null; toast('Канал удалён'); }
+      else { S.err = r.msg; }
+      return afterAct();
+    });
+  }
+  function saveChannelReal(d, name, handle) {
+    var idOf = function (k) { return k === 'me' ? S.acc.id : (P[k] && P[k].id); };
+    var orig = d.isNew ? null : chById(d.id);
+    var rooms = d.rooms.map(function (dr, i) {
+      var o = dr.orig;
+      return { id: o ? o.id : null, kind: dr.kind === 'voice' ? 'voice' : 'text', name: (dr.name || '').trim() || (dr.kind === 'voice' ? 'Голос' : 'Чат'), locked: !!dr.locked, position: i,
+        add: dr.allowed.filter(function (k) { return !o || o.allowed.indexOf(k) < 0; }).map(idOf).filter(Boolean),
+        del: o ? o.allowed.filter(function (k) { return dr.allowed.indexOf(k) < 0; }).map(idOf).filter(Boolean) : [],
+        changed: !o || o.name !== dr.name || !!o.locked !== !!dr.locked };
+    });
+    var keep = {}; rooms.forEach(function (r) { if (r.id) keep[r.id] = 1; });
+    var removed = orig ? orig.rooms.filter(function (r) { return !keep[r.id]; }).map(function (r) { return r.id; }) : [];
+    S.saving = true; S.err = ''; render();
+    HSData.saveChannel({ isNew: d.isNew, id: d.id, name: name, handle: handle, desc: d.desc.trim(), color: d.g, isPublic: d.isPublic !== false, rooms: rooms, removed: removed }).then(function (r) {
+      S.saving = false;
+      if (!r.ok) { S.err = r.msg; render(); return; }
+      S.cd = null;
+      return HSData.refresh().then(function () {
+        var c = d.isNew ? CH.filter(function (x) { return x.handle === handle; })[0] : chById(d.id);
+        S.sub = c ? { type: 'channel', id: c.id } : null;
+        render(); toast(d.isNew ? 'Канал создан' : 'Канал сохранён');
+      });
     });
   }
 
@@ -1237,16 +1340,17 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   }
   function openChannelEditor(c) {
     S.err = '';
-    if (!c) { S.cd = { isNew: true, id: null, name: '', handle: '', desc: '', g: 0, rooms: [draftRoom('voice', 'Общий голос'), draftRoom('chat', 'Общий чат')] }; S.sub = { type: 'editChannel', isNew: true }; }
-    else { S.cd = { isNew: false, id: c.id, name: c.name, handle: c.handle, desc: c.desc, g: c.g, rooms: c.rooms.map(function (r) { return draftRoom(null, null, r); }) }; S.sub = { type: 'editChannel', id: c.id }; }
+    if (!c) { S.cd = { isNew: true, id: null, name: '', handle: '', desc: '', g: 0, isPublic: true, real: realOn(), rooms: realOn() ? [] : [draftRoom('voice', 'Общий голос'), draftRoom('chat', 'Общий чат')] }; S.sub = { type: 'editChannel', isNew: true }; }
+    else { S.cd = { isNew: false, id: c.id, name: c.name, handle: c.handle, desc: c.desc, g: c.g, isPublic: c.isPublic !== false, real: !!c.real, owner: !!c.owner, delAsk: false, memberKeys: (c.memberKeys || []).slice(), rooms: c.rooms.map(function (r) { return draftRoom(null, null, r); }) }; S.sub = { type: 'editChannel', id: c.id }; }
   }
   function saveChannel() {
     var d = S.cd, name = d.name.trim(), handle = d.handle;
     if (!name) { S.err = 'Введите название канала'; return false; }
     if (handle.length < 3) { S.err = '@название: минимум 3 символа (латиница, цифры, _)'; return false; }
     if (CH.some(function (c) { return c.handle === handle && c.id !== d.id; })) { S.err = 'Такой @ник уже занят, выберите другой'; return false; }
-    if (!d.rooms.length) { S.err = 'Добавьте хотя бы одну комнату'; return false; }
+    if (!d.rooms.length && !(d.isNew && realOn())) { S.err = 'Добавьте хотя бы одну комнату'; return false; }
     S.err = '';
+    if (realOn()) { saveChannelReal(d, name, handle); return 'async'; }
     var fix = function (dr) { return (dr.name || '').trim() || (dr.kind === 'voice' ? 'Голос' : 'Чат'); };
     if (d.isNew) {
       var c = { id: 'u' + (++cseq), name: name, handle: handle, desc: d.desc.trim(), g: d.g, mine: true, owner: true, members: 1, rooms: d.rooms.map(function (dr) { return R(dr.kind, fix(dr), { locked: dr.locked, allowed: dr.allowed.slice() }); }) };
@@ -1290,7 +1394,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
 
   document.addEventListener('click', function (e) {
     var j = e.target.closest('[data-join]');
-    if (j) { var jc = chById(j.dataset.join); jc.mine = true; jc.members++; render(); toast('Вы вступили в «' + jc.name + '»'); return; }
+    if (j) { var jc = chById(j.dataset.join); if (jc.real) { joinReal(jc); return; } jc.mine = true; jc.members++; render(); toast('Вы вступили в «' + jc.name + '»'); return; }
     var b = e.target.closest('button');
     if (!b) return;
     var d = b.dataset, a = d.act;
@@ -1301,6 +1405,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
       if (!f.c.mine) { toast('Сначала вступите в канал'); return; }
       if (d.chat) f.r.unread = 0;
       S.sub = { type: d.chat ? 'chatroom' : 'room', id: f.r.id }; render();
+      if (d.chat && f.r.chatId && window.HSData) HSData.refresh();
     }
     else if (d.thread) { if (P[d.thread] && P[d.thread].real) openRealThread(d.thread); else { openThread(d.thread); render(); } }
     else if (d.notif) {
@@ -1338,10 +1443,13 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     else if (a === 'editChannel') { openChannelEditor(chById(S.sub.id)); render(); }
     else if (a === 'addVoice') { S.cd.rooms.push(draftRoom('voice', 'Новая комната')); render(); }
     else if (a === 'addChat') { S.cd.rooms.push(draftRoom('chat', 'Новый чат')); render(); }
-    else if (a === 'saveChannel') { saveChannel(); render(); }
-    else if (a === 'joinChannel') { var jc2 = chById(S.sub.id); jc2.mine = true; jc2.members++; render(); toast('Вы вступили в «' + jc2.name + '»'); }
-    else if (a === 'reqInvite') { toast('Запрос отправлен. Владелец решит, пустить ли вас'); }
-    else if (a === 'reqWrite') { toast('Запрос отправлен. Владелец решит, разрешить ли писать'); }
+    else if (a === 'saveChannel') { if (S.saving) return; var sr = saveChannel(); if (sr !== 'async') render(); }
+    else if (a === 'joinChannel') { var jc2 = chById(S.sub.id); if (jc2.real) joinReal(jc2); else { jc2.mine = true; jc2.members++; render(); toast('Вы вступили в «' + jc2.name + '»'); } }
+    else if (a === 'cpub') { S.cd.isPublic = !(S.cd.isPublic !== false); render(); }
+    else if (a === 'cdel') { if (!S.cd.delAsk) { S.cd.delAsk = true; render(); } else deleteReal(S.cd); }
+    else if (a === 'leaveChannel') { var lc = chById(S.sub.id); if (S.leaveAsk !== lc.id) { S.leaveAsk = lc.id; render(); } else leaveReal(lc); }
+    else if (a === 'reqInvite') { toast('Попросите владельца канала добавить вас в эту комнату'); }
+    else if (a === 'reqWrite') { toast('Попросите владельца канала разрешить вам писать'); }
     else if (a === 'editProfile') { S.draft = Object.assign({}, S.me); S.err = ''; S.sub = { type: 'edit' }; render(); }
     else if (a === 'rmBanner') { S.draft.bannerImg = null; render(); }
     else if (a === 'rmAvatar') { S.draft.avatarImg = null; render(); }
@@ -1420,6 +1528,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     } else if (fid === 'cchat' && S.sub.type === 'chatroom') {
       var f = findRoom(S.sub.id);
       if (!canEnter(f.c, f.r)) return;
+      if (f.r.chatId) { inp.value = ''; sendRoom(f.r, v); return; }
       f.r.msgs.push({ u: 'me', t: v, time: nowT() });
       box.innerHTML = groupMsgsHtml(f.r);
     } else if (fid === 'gchat' && S.sub.type === 'group') {
@@ -1434,18 +1543,20 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   window.HSApp = {
     setUser: function (acc) {
       S.acc = acc; S.logoutAsk = false; S.delAsk = false; S.delText = ''; S.delErr = ''; S.sub = null; S.draft = null; REAL.sig = '';
-      GROUPS.length = 0; CH.forEach(function (c) { (c.rooms || []).forEach(function (r) { r.unread = 0; }); }); S.notifs = [];
+      GROUPS.length = 0; CH.length = 0; S.notifs = []; S.leaveAsk = null; S.joined = null;
       if (acc) { if (acc.name) S.me.name = acc.name; }
       else { setSocial({ people: [], me: { name: '', nick: '', bio: '', status: 'on', g: 0, b: 0 } }); }
       render();
     },
+    watching: function () { var s2 = S.sub; if (s2 && s2.type === 'chatroom') { var f2 = findRoom(s2.id); return (f2 && f2.r.chatId) || null; } return null; },
     setSocial: function (d, auto) {
       var sig = JSON.stringify(d); if (sig === REAL.sig) return;
       var inT = !!(S.sub && S.sub.type === 'thread' && P[S.sub.id] && P[S.sub.id].real), ae = document.activeElement;
-      if (auto && !inT && ((ae && /INPUT|TEXTAREA/.test(ae.tagName)) || (S.sub && S.sub.type === 'edit'))) return;   // не мешаем вводу
+      var fr0 = (S.sub && S.sub.type === 'chatroom') ? findRoom(S.sub.id) : null, inR = !!(fr0 && fr0.r.chatId), rid = inR ? S.sub.id : null;
+      if (auto && !inT && !inR && ((ae && /INPUT|TEXTAREA/.test(ae.tagName)) || (S.sub && S.sub.type === 'edit'))) return;   // не мешаем вводу
       var cur = inT ? S.sub.id : null;
       REAL.sig = sig; setSocial(d);
-      if (cur && TH[cur]) threadRefresh(); else render();
+      if (cur && TH[cur]) threadRefresh(); else if (rid && findRoom(rid)) roomRefresh(); else render();
     }
   };
   restore();
@@ -1618,7 +1729,11 @@ function hmark() { /* маленький знак HopSpeak в заголовка
           out.people = (pp.data || []).map(function (x) { return { id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color }; });
         }
       }
-      if (!m.is_guest) out.dms = await loadDms(u.id, out.people);
+      if (!m.is_guest) {
+        try { out.dms = await loadDms(u.id, out.people); } catch (e) { out.dms = []; }
+        try { var chn = await loadChannels(u.id, out.people); if (chn) out.channels = chn; } catch (e) {}
+        try { var w = (window.HSApp && HSApp.watching) ? HSApp.watching() : null; if (w) { var rmx = await loadRoom(w, u.id, out.people); if (rmx) out.room = rmx; } } catch (e) {}
+      }
       if (window.HSApp) HSApp.setSocial(out, auto);
     } catch (e) {}
   }
@@ -1644,6 +1759,57 @@ function hmark() { /* маленький знак HopSpeak в заголовка
         msgs: list.map(function (m) { return { id: m.id, mine: m.author_id === me, body: m.body, at: m.created_at }; }) };
     });
   }
+  async function loadChannels(me, people) {
+    var ch = await db.from('channels').select('id,owner_id,name,handle,description,color,is_public,created_at').order('created_at', { ascending: false }).limit(100);
+    var cm = await db.from('channel_members').select('channel_id,user_id,role');
+    if (ch.error || cm.error) return null;
+    var ids = (ch.data || []).map(function (c) { return c.id; }), rooms = [], perms = [];
+    if (ids.length) {
+      var rm = await db.from('rooms').select('id,channel_id,kind,name,position,restricted,chat_id').in('channel_id', ids).order('position', { ascending: true });
+      var rp = await db.from('room_permissions').select('room_id,user_id');
+      if (rm.error || rp.error) return null;
+      rooms = rm.data || []; perms = rp.data || [];
+    }
+    var role = {}, mem = {};
+    (cm.data || []).forEach(function (r) { (mem[r.channel_id] = mem[r.channel_id] || []).push(r.user_id); if (r.user_id === me) role[r.channel_id] = r.role; });
+    var have = {}; people.forEach(function (x) { have[x.id] = 1; });
+    var need = {}; Object.keys(mem).forEach(function (k) { if (role[k]) mem[k].forEach(function (u) { if (u !== me && !have[u]) need[u] = 1; }); });
+    perms.forEach(function (x) { if (x.user_id !== me && !have[x.user_id]) need[x.user_id] = 1; });
+    var nl = Object.keys(need).slice(0, 200);
+    if (nl.length) {
+      var pp = await db.from('profiles').select('id,nick,name,status,avatar_color').in('id', nl);
+      (pp.data || []).forEach(function (x) { people.push({ id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color }); });
+    }
+    return (ch.data || []).map(function (c) {
+      return { id: c.id, name: c.name, handle: c.handle, desc: c.description, color: c.color, isPublic: c.is_public, mine: !!role[c.id], role: role[c.id] || null,
+        members: (mem[c.id] || []).length, memberIds: role[c.id] ? mem[c.id] : [],
+        rooms: rooms.filter(function (r) { return r.channel_id === c.id; }).map(function (r) {
+          return { id: r.id, kind: r.kind, name: r.name, restricted: r.restricted, chatId: r.chat_id, allowed: perms.filter(function (x) { return x.room_id === r.id; }).map(function (x) { return x.user_id; }) };
+        }) };
+    });
+  }
+  async function loadRoom(chatId, me, people) {
+    var ms = await db.from('messages').select('id,author_id,body,created_at').eq('chat_id', chatId).order('id', { ascending: false }).limit(100);
+    if (ms.error) return null;
+    var list = (ms.data || []).slice().reverse(), have = {}, need = {};
+    people.forEach(function (x) { have[x.id] = 1; });
+    list.forEach(function (m) { if (m.author_id !== me && !have[m.author_id]) need[m.author_id] = 1; });
+    var nl = Object.keys(need);
+    if (nl.length) {
+      var pp = await db.from('profiles').select('id,nick,name,status,avatar_color').in('id', nl);
+      (pp.data || []).forEach(function (x) { people.push({ id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color }); });
+    }
+    return { chatId: chatId, msgs: list.map(function (m) { return { id: m.id, author: m.author_id, body: m.body, at: m.created_at }; }) };
+  }
+  function chErr(e) {
+    var m = (e && e.message || '') + '', c = e && e.code;
+    if (c === '23505' || /duplicate/i.test(m)) return { ok: false, msg: 'Такой @ник канала уже занят. Выберите другой.' };
+    if (c === '23514' || /check constraint/i.test(m)) return { ok: false, msg: 'Название: 1–40 символов. @ник: 3–24 символа, a–z, цифры и _.' };
+    if (/too many channels/i.test(m)) return { ok: false, msg: 'Можно создать не больше 20 каналов.' };
+    if (/too many rooms/i.test(m)) return { ok: false, msg: 'В канале не больше 30 комнат.' };
+    if (/row-level security|permission denied/i.test(m)) return { ok: false, msg: 'Нет прав на это действие.' };
+    return { ok: false, msg: dbErr(e) };
+  }
   var rtCh = null, kickT = null;
   function kick() { clearTimeout(kickT); kickT = setTimeout(function () { refresh(true); }, 250); }
   function startRealtime() {
@@ -1659,6 +1825,32 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   async function myId() { var s = await db.auth.getSession(); return s.data.session.user.id; }
   window.HSData = {
     refresh: function () { return refresh(false); },
+    joinChannel: function (id) { return wrap(function () { return db.rpc('join_channel', { p_channel: id }); }); },
+    leaveChannel: async function (id) { var me = await myId(); return wrap(function () { return db.from('channel_members').delete().eq('channel_id', id).eq('user_id', me); }); },
+    deleteChannel: function (id) { return wrap(function () { return db.from('channels').delete().eq('id', id); }); },
+    saveChannel: async function (d) {
+      try {
+        var me = await myId(), row = { name: d.name, handle: d.handle, description: d.desc, color: d.color, is_public: d.isPublic }, cid = d.id, r;
+        if (d.isNew) {
+          row.owner_id = me; r = await db.from('channels').insert(row); if (r.error) return chErr(r.error);
+          return { ok: true };
+        }
+        r = await db.from('channels').update(row).eq('id', cid); if (r.error) return chErr(r.error);
+        for (var i = 0; i < d.rooms.length; i++) {
+          var rm = d.rooms[i];
+          if (rm.id) { if (rm.changed) { r = await db.from('rooms').update({ name: rm.name, restricted: rm.locked, position: rm.position }).eq('id', rm.id); if (r.error) return chErr(r.error); } }
+          else {
+            r = await db.from('rooms').insert({ channel_id: cid, kind: rm.kind, name: rm.name, position: rm.position, restricted: rm.locked }).select('id'); if (r.error) return chErr(r.error);
+            rm.id = r.data && r.data[0] && r.data[0].id;
+          }
+          if (!rm.id) continue;
+          for (var a = 0; a < rm.add.length; a++) { r = await db.from('room_permissions').insert({ room_id: rm.id, user_id: rm.add[a] }); if (r.error) return chErr(r.error); }
+          for (var b = 0; b < rm.del.length; b++) { r = await db.from('room_permissions').delete().eq('room_id', rm.id).eq('user_id', rm.del[b]); if (r.error) return chErr(r.error); }
+        }
+        for (var k = 0; k < d.removed.length; k++) { r = await db.from('rooms').delete().eq('id', d.removed[k]); if (r.error) return chErr(r.error); }
+        return { ok: true };
+      } catch (e) { return chErr(e); }
+    },
     startDm: function (id) { return wrap(function () { return db.rpc('start_dm', { p_target: id }); }); },
     sendMessage: async function (chatId, body) { var me = await myId(); return wrap(function () { return db.from('messages').insert({ chat_id: chatId, author_id: me, body: body.slice(0, 4000) }); }); },
     markRead: async function (chatId, lastId) { try { var me = await myId(); await db.from('read_state').upsert({ chat_id: chatId, user_id: me, last_read_id: lastId }, { onConflict: 'chat_id,user_id' }); } catch (e) {} },
