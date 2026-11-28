@@ -231,9 +231,10 @@ svg { display: block; flex: none; }
 .leave-link.ask { color: var(--danger-t); }
 .b.them { align-self: flex-start; background: var(--card2); border-bottom-left-radius: 4px; }
 .b.me { align-self: flex-end; background: var(--main); color: var(--on-main); border-bottom-right-radius: 4px; }
+.tabbar .brand { display: none; }
 .gm { display: flex; gap: 8px; align-items: flex-end; max-width: 88%; align-self: flex-start; margin-top: 4px; }
 .gb { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.gn { font-size: 12px; font-weight: 600; padding-left: 6px; }
+.gn { display: block; font-size: 12.5px; font-weight: 700; line-height: 1.25; margin-bottom: 2px; overflow-wrap: anywhere; }
 .gb .b { max-width: 100%; }
 .compose { display: flex; gap: 8px; padding: 8px 0 14px; }
 .compose input { flex: 1; min-width: 0; height: 46px; border-radius: 10px; padding: 0 14px; background: var(--card); border: 1px solid var(--line); color: var(--fg); }
@@ -428,7 +429,8 @@ input[type="range"] { width: 100%; accent-color: var(--main); }
 @media (min-width: 900px) {
   .phone { max-width: 1120px; max-height: 940px; display: grid; grid-template-columns: 232px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; padding-left: 0; padding-right: 0; }
   .tabbar, .tabbar.hide { display: flex !important; flex-direction: column; align-items: stretch; gap: 4px; grid-column: 1; grid-row: 1 / 3; height: auto; margin: 0; padding: 14px 12px; border-top: 0; border-right: 1px solid var(--line); background: var(--card); overflow-y: auto; }
-  .tabbar::before { order: -2; content: 'HopSpeak'; display: block; font-weight: 700; font-size: 20px; letter-spacing: -.01em; padding: 6px 12px 16px; }
+  .tabbar .brand { order: -2; display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -.01em; padding: 6px 12px 16px; }
+  .tabbar .brand .hmark svg { width: 32px; height: 32px; }
   .tabbar .tb { flex-direction: row; justify-content: flex-start; gap: 12px; height: 46px; padding: 0 12px; border-radius: 10px; font-size: 15px; }
   .tabbar .tb[aria-selected="true"] { background: var(--card2); }
   .tabbar .tb .bdg { position: static; margin-left: auto; }
@@ -747,7 +749,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     return r.msgs.map(function (m) {
       if (m.u === 'me') return '<div class="b me' + (m.pending ? ' pend' : '') + '">' + esc(m.t) + '<time>' + esc(m.time) + '</time></div>';
       var p = P[m.u] || { n: 'Неизвестный', c: 'var(--muted)' }; if (!P[m.u]) P[m.u] = p;
-      return '<div class="gm">' + avP(m.u, 'sm') + '<div class="gb"><span class="gn" style="color:' + p.c + '">' + esc(p.n) + '</span><div class="b them">' + esc(m.t) + '<time>' + esc(m.time) + '</time></div></div></div>';
+      return '<div class="gm">' + avP(m.u, 'sm') + '<div class="gb"><div class="b them"><span class="gn" style="color:' + p.c + '">' + esc(p.n) + '</span>' + esc(m.t) + '<time>' + esc(m.time) + '</time></div></div></div>';
     }).join('');
   }
   function screenChatRoom(rid) {
@@ -1247,7 +1249,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     var u = unreadTotal(), fr = S.req.in.length;
     $('tabbar').classList.toggle('hide', !!S.sub);
     var tb = function (key, icon, label, extra) { return '<button class="tb" role="tab" data-tab="' + key + '" aria-selected="' + (S.tab === key) + '">' + icon + label + (extra || '') + '</button>'; };
-    $('tabbar').innerHTML =
+    $('tabbar').innerHTML = '<div class="brand">' + hmark() + 'HopSpeak</div>' +
       tb('channels', I.wave, 'Каналы', anyLive() ? '<span class="live-dot"></span>' : '') +
       tb('chats', I.bubble, 'Чаты', u ? '<span class="badge bdg">' + u + '</span>' : '') +
       '<div class="center"><button data-tab="profile" aria-selected="' + (S.tab === 'profile') + '" aria-label="Профиль">' + avMe() + '</button></div>' +
