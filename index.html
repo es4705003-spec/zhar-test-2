@@ -1115,7 +1115,10 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     else if (S.tab === 'friends') h = screenFriends();
     else if (S.tab === 'settings') h = screenSettings();
     else h = screenProfile();
+    var sc = document.querySelector('#screen .scroll'), sig = S.tab + '|' + (S.sub ? S.sub.type + ':' + S.sub.id : ''), keep = (sc && render.sig === sig) ? sc.scrollTop : 0;
     $('screen').innerHTML = h;
+    render.sig = sig;
+    if (keep) { var sc2 = document.querySelector('#screen .scroll'); if (sc2) sc2.scrollTop = keep; }   // не прыгаем наверх при смене настройки
     $('phone').classList.toggle('calm', !!S.set.calm);
     var th = S.set.theme; if (['zhar', 'ice', 'forest', 'dusk'].indexOf(th) < 0) th = 'zhar';
     if (th === 'zhar') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', th);
