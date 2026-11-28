@@ -227,6 +227,21 @@ svg { display: block; flex: none; }
 .b { max-width: 80%; padding: 8px 12px; border-radius: 12px; overflow-wrap: anywhere; }
 .b time { display: block; font-size: 10.5px; opacity: .7; margin-top: 2px; text-align: right; font-variant-numeric: tabular-nums; }
 .b.pend { opacity: .6; }
+.tk { display: inline-block; margin-left: 4px; vertical-align: -1px; opacity: .55; }
+.tk svg { width: 17px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tk.rd { opacity: 1; }
+.emblem.img { background-size: cover; background-position: center; color: transparent; }
+.avrow { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; padding: 4px 0 8px; }
+.avrow .tiny-btn { cursor: pointer; }
+.qrow { display: flex; align-items: center; gap: 12px; width: 100%; margin: 8px 0 2px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 12px; text-align: left; }
+.qrow small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.qitem { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-top: 10px; background: var(--card); }
+.qitem b { display: block; }
+.qitem small { color: var(--muted); }
+.qitem input { width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); padding: 0 10px; font: inherit; margin: 8px 0; }
+.qitem .row { display: flex; gap: 8px; }
+.qitem .row button, .qitem .row a { flex: 1; height: 40px; display: grid; place-items: center; border-radius: 10px; border: 1px solid var(--line); font-weight: 600; font-size: 14px; color: var(--fg); text-decoration: none; }
+.qform select, .qform input { width: 100%; height: 46px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--fg); padding: 0 12px; font: inherit; margin-bottom: 8px; }
 .leave-link { display: block; margin: 18px auto 8px; color: var(--muted); text-decoration: underline; font-size: 14px; }
 .leave-link.ask { color: var(--danger-t); }
 .b.them { align-self: flex-start; background: var(--card2); border-bottom-left-radius: 4px; }
@@ -592,7 +607,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     filter: 'all',
     joined: null, muted: false, deaf: false,
     speaking: {},
-    logoutAsk: false, delAsk: false, delText: '', delBusy: false, delErr: '', acc: null, reportFor: null, saving: false, leaveAsk: null, joining: false,
+    logoutAsk: false, delAsk: false, delText: '', delBusy: false, delErr: '', acc: null, reportFor: null, saving: false, leaveAsk: null, joining: false, avBusy: false, qList: null, qBusy: false, qErr: '', qTitle: 'Быстрый голос', qMax: 8,
     draft: null,
     cd: null, err: '',
     req: { in: ['tima'], out: ['olya'] }, blocked: [], fq: '', open: null, confirmKey: null, addMsg: null, addVal: '',
@@ -629,7 +644,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     var g = BANNERS[o.b];
     return 'background-color:' + g[0];
   };
-  var emblem = function (c) { var g = COLORS[c.g]; return '<span class="emblem" style="--c1:' + g[0] + ';--c2:' + g[1] + '">' + esc((c.name || '?').trim().charAt(0).toUpperCase() || '?') + '</span>'; };
+  var emblem = function (c) { var g = COLORS[c.g]; if (c.avatarUrl) return '<span class="emblem img" style="background-image:url(' + esc(c.avatarUrl) + ')"></span>'; return '<span class="emblem" style="--c1:' + g[0] + ';--c2:' + g[1] + '">' + esc((c.name || '?').trim().charAt(0).toUpperCase() || '?') + '</span>'; };
   var nowT = function () { return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); };
   var unreadTotal = function () { var n = 0; for (var k in TH) n += TH[k].unread; GROUPS.forEach(function (g) { n += g.unread; }); return n; };
   var anyLive = function () { return CH.some(function (c) { return c.mine && callTotal(c) > 0; }); };
@@ -684,7 +699,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     }
     return '<div class="top"><h1>' + hmark() + 'Каналы</h1><div class="hbtns">' + bellBtn() + '</div></div>' +
       '<div class="srow"><button class="sbar" data-act="openSearch">' + I.search + 'Поиск каналов</button><button class="plus" data-act="newChannel" aria-label="Создать канал">' + I.plus + '</button></div>' +
-      '<div class="scroll">' + channelsBody() + '</div>';
+      '<div class="scroll">' + (realOn() ? '<button class="qrow" data-act="openQuick">' + I.speaker + '<span><b>Быстрый голос</b><small>Ссылка для гостей: зайдут без регистрации</small></span></button>' : '') + channelsBody() + '</div>';
   }
 
   /* ---------- channel page ---------- */
@@ -777,6 +792,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     var d = S.cd, isNew = d.isNew;
     var h = '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button><div class="t"><b>' + (isNew ? 'Новый канал' : 'Настройки канала') + '</b><span>' + (isNew ? 'Придумайте название и @ник' : 'Название, комнаты и доступ') + '</span></div></div><div class="scroll">';
     h += '<div class="ed-emb"><span id="edEmb">' + emblem(d) + '</span></div>';
+    if (!d.isNew && d.real) h += '<div class="avrow"><label class="tiny-btn">' + (S.avBusy ? 'Загружаем…' : 'Сменить аватарку') + '<input type="file" id="chAvFile" accept="image/*" hidden' + (S.avBusy ? ' disabled' : '') + '></label>' + (d.avatarUrl && !S.avBusy ? '<button class="tiny-btn" data-act="chAvDel">Убрать</button>' : '') + '</div>';
     h += '<div class="sect">Цвет канала</div><div class="swatches">' + COLORS.map(function (g, i) { return '<button class="sw" data-cg="' + i + '" style="--c1:' + g[0] + ';--c2:' + g[1] + '" aria-pressed="' + (d.g === i) + '" aria-label="Цвет ' + (i + 1) + '"></button>'; }).join('') + '</div>';
     h += '<div class="sect">Название</div><label class="field"><input id="edChName" type="text" maxlength="28" placeholder="Например, Кухня" value="' + esc(d.name) + '" aria-label="Название канала"></label>';
     h += '<div class="sect">@название</div><label class="prefix">@<input id="edChHandle" type="text" maxlength="24" autocapitalize="none" autocomplete="off" placeholder="kitchen" value="' + esc(d.handle) + '" aria-label="Ник канала"></label>';
@@ -860,7 +876,13 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   }
   function msgsHtml(t) {
     if (!t.msgs.length) return '<div class="empty">Начните разговор: напишите первое сообщение.</div>';
-    return t.msgs.map(function (m) { return '<div class="b ' + m.f + (m.pending ? ' pend' : '') + '">' + esc(m.t) + '<time>' + esc(m.time) + '</time></div>'; }).join('');
+    var tick = function (m) {
+      if (m.f !== 'me' || !t.chatId) return '';
+      if (m.pending) return '<span class="tk" title="Отправляется"><svg viewBox="0 0 17 11"><circle cx="8.5" cy="5.5" r="4"/><path d="M8.5 3.5v2l1.4 1"/></svg></span>';
+      var rd = t.peerRead && m.id && t.peerRead >= m.id;
+      return '<span class="tk' + (rd ? ' rd' : '') + '" title="' + (rd ? 'Прочитано' : 'Отправлено') + '"><svg viewBox="0 0 17 11">' + (rd ? '<path d="M1 6l3 3L10 2M6.5 8.5L7.5 9.5 14 2"/>' : '<path d="M3.5 6l3 3L13 2"/>') + '</svg></span>';
+    };
+    return t.msgs.map(function (m) { return '<div class="b ' + m.f + (m.pending ? ' pend' : '') + '">' + esc(m.t) + '<time>' + esc(m.time) + tick(m) + '</time></div>'; }).join('');
   }
 
   /* ---------- profile ---------- */
@@ -1101,7 +1123,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     var rows = [];
     (list || []).forEach(function (c) {
       var k = REAL.byId[c.peer]; if (!k) return;
-      TH[k] = { chatId: c.chatId, lastId: c.lastId, unread: c.unread, msgs: c.msgs.map(function (m) { return { id: m.id, f: m.mine ? 'me' : 'them', t: m.body, time: fmtTime(m.at) }; }) };
+      TH[k] = { chatId: c.chatId, lastId: c.lastId, unread: c.unread, peerRead: c.peerRead || 0, msgs: c.msgs.map(function (m) { return { id: m.id, f: m.mine ? 'me' : 'them', t: m.body, time: fmtTime(m.at) }; }) };
       rows.push([k, c.lastId || c.sort || 0]);
     });
     rows.sort(function (a, b) { return b[1] - a[1]; });
@@ -1158,7 +1180,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
         var or = o && o.rooms.filter(function (x) { return x.id === r.id; })[0];
         return { id: r.id, kind: r.kind === 'voice' ? 'voice' : 'chat', name: r.name, locked: !!r.restricted, allowed: (r.allowed || []).map(keyOf).filter(Boolean), call: or ? or.call : [], msgs: or ? or.msgs : [], unread: 0, chatId: r.chatId || null };
       });
-      CH.push({ id: c.id, name: c.name, handle: c.handle, desc: c.desc || '', g: (c.color || 0) % 5, mine: !!c.mine, owner: c.role === 'owner', isAdmin: c.role === 'owner' || c.role === 'admin', members: c.mine ? c.members : null, isPublic: c.isPublic, memberKeys: mk, rooms: rooms, real: true });
+      CH.push({ id: c.id, name: c.name, handle: c.handle, desc: c.desc || '', g: (c.color || 0) % 5, mine: !!c.mine, owner: c.role === 'owner', isAdmin: c.role === 'owner' || c.role === 'admin', members: c.mine ? c.members : null, isPublic: c.isPublic, avatarUrl: c.avatarUrl || null, avatarPath: c.avatarPath || null, memberKeys: mk, rooms: rooms, real: true });
     });
     if (S.sub && S.sub.id && (S.sub.type === 'channel') && !chById(S.sub.id)) S.sub = null;
   }
@@ -1236,6 +1258,30 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     });
   }
 
+  /* ---------- быстрый голос: ссылки для гостей ---------- */
+  function quickUrl(code) { try { return new URL('quick.html', location.href).href.split('#')[0].split('?')[0] + '#' + code; } catch (e) { return 'quick.html#' + code; } }
+  function leftTxt(iso) { var m = Math.max(0, Math.round((new Date(iso) - Date.now()) / 60000)); return m >= 60 ? 'осталось ' + Math.floor(m / 60) + ' ч ' + (m % 60) + ' мин' : 'осталось ' + m + ' мин'; }
+  function screenQuick() {
+    var h = '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button><div class="t"><b>Быстрый голос</b><span>Ссылка для гостей</span></div></div><div class="scroll">';
+    h += '<div class="hintbox">Гость открывает ссылку, вводит имя и сразу попадает в голос. Регистрация не нужна. Ссылка живёт 12 часов.</div>';
+    h += '<div class="qform"><div class="sect">Название</div><input id="qTitle" type="text" maxlength="40" value="' + esc(S.qTitle) + '" aria-label="Название комнаты"><div class="sect">Сколько человек</div><select id="qMax" aria-label="Сколько человек">' +
+      [2, 4, 6, 8, 10, 15, 20].map(function (n) { return '<option value="' + n + '"' + (S.qMax === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></div>';
+    if (S.qErr) h += '<div class="err">' + esc(S.qErr) + '</div>';
+    h += '<button class="save" data-act="qCreate" style="width:100%"' + (S.qBusy ? ' disabled' : '') + '>' + (S.qBusy ? 'Создаём…' : 'Создать ссылку') + '</button>';
+    if (S.qList === null) h += '<div class="empty">Загружаем…</div>';
+    else if (!S.qList.length) h += '<div class="empty">Активных ссылок пока нет.</div>';
+    else {
+      h += '<div class="sect">Ваши ссылки</div>';
+      S.qList.forEach(function (q) {
+        var u = quickUrl(q.code);
+        h += '<div class="qitem"><b>' + esc(q.title) + '</b><small>до ' + q.max_people + ' человек · ' + leftTxt(q.expires_at) + '</small><input readonly value="' + esc(u) + '" aria-label="Ссылка" onfocus="this.select()">' +
+          '<div class="row"><button data-qcopy="' + esc(q.code) + '">Копировать</button><a href="' + esc(u) + '" target="_blank" rel="noopener">Открыть</a><button data-qdel="' + q.id + '">Удалить</button></div></div>';
+      });
+    }
+    return h + '</div>';
+  }
+  function loadQuick() { HSData.listQuick().then(function (r) { if (r.ok) S.qList = r.data; else { S.qList = S.qList || []; S.qErr = r.msg; } if (S.sub && S.sub.type === 'quick') render(); }); }
+
   function screenGroup(id) {
     var g = groupById(id), n = g.members.length + 1;
     var h = '<div class="subtop"><button class="back" data-act="back" aria-label="Назад">' + I.back + '</button>' + groupAv(g) + '<div class="t"><b>' + esc(g.name) + '</b><span>' + n + ' ' + peopleWord(n) + ' · демо-группа</span></div></div>';
@@ -1269,6 +1315,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     else if (t === 'room') h = screenRoom(sub.id);
     else if (t === 'chatroom') h = screenChatRoom(sub.id);
     else if (t === 'editChannel') h = screenEditChannel();
+    else if (t === 'quick') h = screenQuick();
     else if (t === 'thread') h = screenThread(sub.id);
     else if (t === 'notifs') h = screenNotifs();
     else if (t === 'group') h = screenGroup(sub.id);
@@ -1373,7 +1420,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   function openChannelEditor(c) {
     S.err = '';
     if (!c) { S.cd = { isNew: true, id: null, name: '', handle: '', desc: '', g: 0, isPublic: true, real: realOn(), rooms: realOn() ? [] : [draftRoom('voice', 'Общий голос'), draftRoom('chat', 'Общий чат')] }; S.sub = { type: 'editChannel', isNew: true }; }
-    else { S.cd = { isNew: false, id: c.id, name: c.name, handle: c.handle, desc: c.desc, g: c.g, isPublic: c.isPublic !== false, real: !!c.real, owner: !!c.owner, delAsk: false, memberKeys: (c.memberKeys || []).slice(), rooms: c.rooms.map(function (r) { return draftRoom(null, null, r); }) }; S.sub = { type: 'editChannel', id: c.id }; }
+    else { S.cd = { isNew: false, id: c.id, avatarUrl: c.avatarUrl || null, avatarPath: c.avatarPath || null, name: c.name, handle: c.handle, desc: c.desc, g: c.g, isPublic: c.isPublic !== false, real: !!c.real, owner: !!c.owner, delAsk: false, memberKeys: (c.memberKeys || []).slice(), rooms: c.rooms.map(function (r) { return draftRoom(null, null, r); }) }; S.sub = { type: 'editChannel', id: c.id }; }
   }
   function saveChannel() {
     var d = S.cd, name = d.name.trim(), handle = d.handle;
@@ -1425,6 +1472,10 @@ function hmark() { /* маленький знак HopSpeak в заголовка
   var POOL = ['anya', 'max', 'lena', 'dima', 'kir'];
 
   document.addEventListener('click', function (e) {
+    var qc = e.target.closest('[data-qcopy]');
+    if (qc) { var u = quickUrl(qc.dataset.qcopy); var ok = function () { toast('Ссылка скопирована'); }, no = function () { toast('Не удалось скопировать. Выделите ссылку и скопируйте вручную'); }; try { navigator.clipboard.writeText(u).then(ok, no); } catch (er) { no(); } return; }
+    var qd = e.target.closest('[data-qdel]');
+    if (qd) { HSData.deleteQuick(qd.dataset.qdel).then(function (r) { toast(r.ok ? 'Ссылка удалена' : r.msg); loadQuick(); }); return; }
     var j = e.target.closest('[data-join]');
     if (j) { var jc = chById(j.dataset.join); if (jc.real) { joinReal(jc); return; } jc.mine = true; jc.members++; render(); toast('Вы вступили в «' + jc.name + '»'); return; }
     var b = e.target.closest('button');
@@ -1477,6 +1528,15 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     else if (a === 'addChat') { S.cd.rooms.push(draftRoom('chat', 'Новый чат')); render(); }
     else if (a === 'saveChannel') { if (S.saving) return; var sr = saveChannel(); if (sr !== 'async') render(); }
     else if (a === 'joinChannel') { var jc2 = chById(S.sub.id); if (jc2.real) joinReal(jc2); else { jc2.mine = true; jc2.members++; render(); toast('Вы вступили в «' + jc2.name + '»'); } }
+    else if (a === 'chAvDel') { setChanAvatar(null); }
+    else if (a === 'openQuick') { S.sub = { type: 'quick' }; S.qErr = ''; S.qList = null; render(); loadQuick(); }
+    else if (a === 'qCreate') {
+      if (S.qBusy) return; S.qBusy = true; S.qErr = ''; render();
+      HSData.createQuick(S.qTitle.trim() || 'Быстрый голос', S.qMax).then(function (r) {
+        S.qBusy = false; if (!r.ok) S.qErr = r.msg; else toast('Ссылка создана');
+        render(); loadQuick();
+      });
+    }
     else if (a === 'cpub') { S.cd.isPublic = !(S.cd.isPublic !== false); render(); }
     else if (a === 'cdel') { if (!S.cd.delAsk) { S.cd.delAsk = true; render(); } else deleteReal(S.cd); }
     else if (a === 'leaveChannel') { var lc = chById(S.sub.id); if (S.leaveAsk !== lc.id) { S.leaveAsk = lc.id; render(); } else leaveReal(lc); }
@@ -1530,13 +1590,26 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     else if (id === 'edChHandle' && cd) { var v2 = t.value.toLowerCase().replace(/[^a-z0-9_]/g, ''); t.value = v2; cd.handle = v2; }
     else if (id === 'edChDesc' && cd) { cd.desc = t.value; $('edChCnt').textContent = cd.desc.length + ' / 140'; }
     else if (t.dataset && t.dataset.rname !== undefined && cd) { cd.rooms[+t.dataset.rname].name = t.value; }
+    else if (id === 'qTitle') { S.qTitle = t.value; }
     else if (id === 'delInput') { S.delText = t.value; var g = $('delGo'); if (g) g.disabled = !(S.delText.trim().toUpperCase() === 'УДАЛИТЬ' && !S.delBusy); }
     else if (id === 'rMic') { S.set.mic = +t.value; $('vMic').textContent = S.set.mic + '%'; persist(); }
     else if (id === 'rVol') { S.set.vol = +t.value; $('vVol').textContent = S.set.vol + '%'; persist(); }
   });
 
+  function dataToBlob(url) { var b = atob(url.split(',')[1]), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return new Blob([a], { type: 'image/jpeg' }); }
+  function setChanAvatar(blob) {
+    var d = S.cd; if (!d || !d.id || S.avBusy) return;
+    S.avBusy = true; render();
+    HSData.setChannelAvatar(d.id, blob, d.avatarPath).then(function (r) {
+      S.avBusy = false;
+      if (!r.ok) { toast(r.msg); render(); return; }
+      return HSData.refresh().then(function () { var c = chById(d.id); if (c && S.cd) { S.cd.avatarUrl = c.avatarUrl; S.cd.avatarPath = c.avatarPath; } render(); toast(blob ? 'Аватарка канала обновлена' : 'Аватарка убрана'); });
+    });
+  }
   document.addEventListener('change', function (e) {
     var t = e.target, kind = t.dataset && t.dataset.file;
+    if (t.id === 'qMax') { S.qMax = parseInt(t.value, 10) || 8; return; }
+    if (t.id === 'chAvFile' && t.files && t.files[0]) { readImage(t.files[0], 256, true, function (url) { setChanAvatar(dataToBlob(url)); }); t.value = ''; return; }
     if (!kind || !S.draft || !t.files || !t.files[0]) return;
     var f = t.files[0];
     if (kind === 'avatar') readImage(f, 256, true, function (url) { S.draft.avatarImg = url; render(); });
@@ -1778,6 +1851,8 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     var rs = await db.from('read_state').select('chat_id,last_read_id').eq('user_id', me);
     if (cm.error || ms.error) return [];
     var read = {}; (rs.data || []).forEach(function (r) { read[r.chat_id] = r.last_read_id; });
+    var peerRead = {};
+    try { var pr = await db.rpc('chat_peer_reads'); if (!pr.error) (pr.data || []).forEach(function (r) { peerRead[r.chat_id] = r.last_read_id; }); } catch (e) {}
     var peer = {}; (cm.data || []).forEach(function (r) { if (r.user_id !== me) peer[r.chat_id] = r.user_id; });
     var by = {}; (ms.data || []).forEach(function (m) { (by[m.chat_id] = by[m.chat_id] || []).push(m); });
     var have = {}; people.forEach(function (x) { have[x.id] = 1; });
@@ -1788,12 +1863,13 @@ function hmark() { /* маленький знак HopSpeak в заголовка
     }
     return ids.filter(function (id) { return peer[id]; }).map(function (id) {
       var list = (by[id] || []).slice().reverse(), lr = read[id] || 0, last = list.length ? list[list.length - 1].id : 0;
-      return { chatId: id, peer: peer[id], lastId: last, unread: list.filter(function (m) { return m.id > lr && m.author_id !== me; }).length,
+      return { chatId: id, peer: peer[id], lastId: last, peerRead: peerRead[id] || 0, unread: list.filter(function (m) { return m.id > lr && m.author_id !== me; }).length,
         msgs: list.map(function (m) { return { id: m.id, mine: m.author_id === me, body: m.body, at: m.created_at }; }) };
     });
   }
   async function loadChannels(me, people) {
-    var ch = await db.from('channels').select('id,owner_id,name,handle,description,color,is_public,created_at').order('created_at', { ascending: false }).limit(100);
+    var ch = await db.from('channels').select('id,owner_id,name,handle,description,color,is_public,created_at,avatar_path').order('created_at', { ascending: false }).limit(100);
+    if (ch.error) ch = await db.from('channels').select('id,owner_id,name,handle,description,color,is_public,created_at').order('created_at', { ascending: false }).limit(100);   // колонки аватарки ещё нет
     var cm = await db.from('channel_members').select('channel_id,user_id,role');
     if (ch.error || cm.error) return null;
     var ids = (ch.data || []).map(function (c) { return c.id; }), rooms = [], perms = [];
@@ -1814,7 +1890,7 @@ function hmark() { /* маленький знак HopSpeak в заголовка
       (pp.data || []).forEach(function (x) { people.push({ id: x.id, nick: x.nick, name: x.name, status: x.status, g: x.avatar_color }); });
     }
     return (ch.data || []).map(function (c) {
-      return { id: c.id, name: c.name, handle: c.handle, desc: c.description, color: c.color, isPublic: c.is_public, mine: !!role[c.id], role: role[c.id] || null,
+      return { id: c.id, name: c.name, handle: c.handle, desc: c.description, color: c.color, isPublic: c.is_public, avatarPath: c.avatar_path || null, avatarUrl: c.avatar_path ? SUPABASE_URL + '/storage/v1/object/public/avatars/' + c.avatar_path : null, mine: !!role[c.id], role: role[c.id] || null,
         members: (mem[c.id] || []).length, memberIds: role[c.id] ? mem[c.id] : [],
         rooms: rooms.filter(function (r) { return r.channel_id === c.id; }).map(function (r) {
           return { id: r.id, kind: r.kind, name: r.name, restricted: r.restricted, chatId: r.chat_id, allowed: perms.filter(function (x) { return x.room_id === r.id; }).map(function (x) { return x.user_id; }) };
@@ -1939,6 +2015,34 @@ function hmark() { /* маленький знак HopSpeak в заголовка
         for (var k = 0; k < d.removed.length; k++) { r = await db.from('rooms').delete().eq('id', d.removed[k]); if (r.error) return chErr(r.error); }
         return { ok: true };
       } catch (e) { return chErr(e); }
+    },
+    listQuick: function () {
+      return wrap(function () { return db.from('quick_rooms').select('id,code,title,max_people,expires_at,created_at').order('created_at', { ascending: false }); }).then(function (r) {
+        if (r.ok) r.data = (r.data || []).filter(function (q) { return new Date(q.expires_at) > new Date(); });
+        return r;
+      });
+    },
+    createQuick: async function (title, max) {
+      var me = await myId(), a = new Uint8Array(10), al = 'abcdefghijkmnpqrstuvwxyz23456789', code = '';
+      (window.crypto || window.msCrypto).getRandomValues(a); for (var i = 0; i < a.length; i++) code += al[a[i] % al.length];
+      var r = await wrap(function () { return db.from('quick_rooms').insert({ code: code, host_id: me, title: title, max_people: max }); });
+      if (!r.ok && /too many quick/i.test(r.msg)) r.msg = 'Можно держать не больше 3 активных ссылок. Удалите ненужную.';
+      return r;
+    },
+    deleteQuick: function (id) { return wrap(function () { return db.from('quick_rooms').delete().eq('id', id); }); },
+    setChannelAvatar: async function (cid, blob, oldPath) {
+      try {
+        var newPath = null;
+        if (blob) {
+          newPath = 'channels/' + cid + '/' + Date.now() + '.jpg';
+          var up = await db.storage.from('avatars').upload(newPath, blob, { contentType: 'image/jpeg', upsert: false });
+          if (up.error) return { ok: false, msg: 'Не удалось загрузить картинку: ' + up.error.message };
+        }
+        var u = await db.from('channels').update({ avatar_path: newPath }).eq('id', cid);
+        if (u.error) return { ok: false, msg: 'Не удалось сохранить аватарку: ' + u.error.message };
+        if (oldPath) { try { await db.storage.from('avatars').remove([oldPath]); } catch (e) {} }
+        return { ok: true };
+      } catch (e) { return { ok: false, msg: dbErr(e) }; }
     },
     startDm: function (id) { return wrap(function () { return db.rpc('start_dm', { p_target: id }); }); },
     sendMessage: async function (chatId, body) { var me = await myId(); return wrap(function () { return db.from('messages').insert({ chat_id: chatId, author_id: me, body: body.slice(0, 4000) }); }); },
